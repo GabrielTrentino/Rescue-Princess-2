@@ -1,0 +1,14 @@
+{
+  "name": "resgate-da-princesa",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Jogo de ação em equipes, top-down, inspirado nas mecânicas de Fat Princess.",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/serve.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

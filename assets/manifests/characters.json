@@ -1,0 +1,230 @@
+{
+  "version": 1,
+  "notes": "Manifesto de sprites dos personagens. Folhas PNG com fundo transparente: colunas = quadros, linhas = direções (ordem em 'directions'). Troque 'status' para 'ready' quando todos os arquivos da classe existirem. Origem (originX, originY) = ponto dos pés, em pixels do quadro.",
+  "defaults": {
+    "frameWidth": 256,
+    "frameHeight": 256,
+    "originX": 128,
+    "originY": 232,
+    "directions": [
+      "down",
+      "left",
+      "right",
+      "up"
+    ],
+    "scale": 0.34,
+    "mirror": false
+  },
+  "characters": {
+    "warrior": {
+      "status": "placeholder",
+      "animations": {
+        "idle": {
+          "src": "assets/characters/warrior/warrior_idle.png",
+          "frames": 8,
+          "fps": 8,
+          "loop": true
+        },
+        "run": {
+          "src": "assets/characters/warrior/warrior_run.png",
+          "frames": 8,
+          "fps": 12,
+          "loop": true
+        },
+        "attack": {
+          "src": "assets/characters/warrior/warrior_attack.png",
+          "frames": 8,
+          "fps": 16,
+          "loop": false
+        },
+        "hurt": {
+          "src": "assets/characters/warrior/warrior_hurt.png",
+          "frames": 4,
+          "fps": 12,
+          "loop": false
+        },
+        "death": {
+          "src": "assets/characters/warrior/warrior_death.png",
+          "frames": 8,
+          "fps": 10,
+          "loop": false
+        }
+      }
+    },
+    "barbarian": {
+      "status": "placeholder",
+      "animations": {
+        "idle": {
+          "src": "assets/characters/barbarian/barbarian_idle.png",
+          "frames": 8,
+          "fps": 8,
+          "loop": true
+        },
+        "run": {
+          "src": "assets/characters/barbarian/barbarian_run.png",
+          "frames": 8,
+          "fps": 12,
+          "loop": true
+        },
+        "attack": {
+          "src": "assets/characters/barbarian/barbarian_attack.png",
+          "frames": 8,
+          "fps": 16,
+          "loop": false
+        },
+        "hurt": {
+          "src": "assets/characters/barbarian/barbarian_hurt.png",
+          "frames": 4,
+          "fps": 12,
+          "loop": false
+        },
+        "death": {
+          "src": "assets/characters/barbarian/barbarian_death.png",
+          "frames": 8,
+          "fps": 10,
+          "loop": false
+        }
+      }
+    },
+    "mage": {
+      "status": "placeholder",
+      "animations": {
+        "idle": {
+          "src": "assets/characters/mage/mage_idle.png",
+          "frames": 8,
+          "fps": 8,
+          "loop": true
+        },
+        "run": {
+          "src": "assets/characters/mage/mage_run.png",
+          "frames": 8,
+          "fps": 12,
+          "loop": true
+        },
+        "attack": {
+          "src": "assets/characters/mage/mage_attack.png",
+          "frames": 8,
+          "fps": 16,
+          "loop": false
+        },
+        "hurt": {
+          "src": "assets/characters/mage/mage_hurt.png",
+          "frames": 4,
+          "fps": 12,
+          "loop": false
+        },
+        "death": {
+          "src": "assets/characters/mage/mage_death.png",
+          "frames": 8,
+          "fps": 10,
+          "loop": false
+        }
+      }
+    },
+    "archer": {
+      "status": "placeholder",
+      "animations": {
+        "idle": {
+          "src": "assets/characters/archer/archer_idle.png",
+          "frames": 8,
+          "fps": 8,
+          "loop": true
+        },
+        "run": {
+          "src": "assets/characters/archer/archer_run.png",
+          "frames": 8,
+          "fps": 12,
+          "loop": true
+        },
+        "attack": {
+          "src": "assets/characters/archer/archer_attack.png",
+          "frames": 8,
+          "fps": 16,
+          "loop": false
+        },
+        "hurt": {
+          "src": "assets/characters/archer/archer_hurt.png",
+          "frames": 4,
+          "fps": 12,
+          "loop": false
+        },
+        "death": {
+          "src": "assets/characters/archer/archer_death.png",
+          "frames": 8,
+          "fps": 10,
+          "loop": false
+        }
+      }
+    },
+    "mercenary": {
+      "status": "placeholder",
+      "animations": {
+        "idle": {
+          "src": "assets/characters/mercenary/mercenary_idle.png",
+          "frames": 8,
+          "fps": 8,
+          "loop": true
+        },
+        "run": {
+          "src": "assets/characters/mercenary/mercenary_run.png",
+          "frames": 8,
+          "fps": 12,
+          "loop": true
+        },
+        "attack": {
+          "src": "assets/characters/mercenary/mercenary_attack.png",
+          "frames": 8,
+          "fps": 16,
+          "loop": false
+        },
+        "hurt": {
+          "src": "assets/characters/mercenary/mercenary_hurt.png",
+          "frames": 4,
+          "fps": 12,
+          "loop": false
+        },
+        "death": {
+          "src": "assets/characters/mercenary/mercenary_death.png",
+          "frames": 8,
+          "fps": 10,
+          "loop": false
+        }
+      }
+    },
+    "halberdier": {
+      "status": "placeholder",
+      "animations": {
+        "idle": {
+          "src": "assets/characters/halberdier/halberdier_idle.png",
+          "frames": 8,
+          "fps": 8,
+          "loop": true
+        },
+        "run": {
+          "src": "assets/characters/halberdier/halberdier_run.png",
+          "frames": 8,
+          "fps": 12,
+          "loop": true
+        },
+        "attack": {
+          "src": "assets/characters/halberdier/halberdier_attack.png",
+          "frames": 8,
+          "fps": 16,
+          "loop": false
+        },
+        "hurt": {
+          "src": "assets/characters/halberdier/halberdier_hurt.png",
+          "frames": 4,
+          "fps": 12,
+          "loop": false
+        },
+        "death": {
+          "src": "assets/characters/halberdier/halberdier_death.png",
+          "frames": 8,
+          "fps": 10,
+          "loop": false
+        }
+      }
+    }
+  }
+}

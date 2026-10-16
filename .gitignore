@@ -1,0 +1,5 @@
+node_modules/
+.DS_Store
+*.log
+# Arquivos-fonte pesados de arte ficam fora do Git até definirmos Git LFS
+assets/source/**/*.blend1
