@@ -2,9 +2,9 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { MatchManager, MATCH_STATE } from '../src/systems/MatchManager.js';
-import { CLASS_ORDER } from '../src/classes/classDefinitions.js';
+import { CLASSES, CLASS_ORDER } from '../src/classes/classDefinitions.js';
 import { selectTarget } from '../src/ai/TargetSelector.js';
-import { validateManifest } from '../src/render/SpriteManager.js';
+import { validateManifest, manifestFiles } from '../src/render/SpriteManager.js';
 import { dist } from '../src/core/math.js';
 
 const DT = 1 / 60;
@@ -127,8 +127,28 @@ test('o manifesto de sprites é válido e aponta para arquivos existentes quando
   assert.deepEqual(Object.keys(manifest.characters).sort(), [...CLASS_ORDER].sort());
   for (const entry of Object.values(manifest.characters)) {
     if (entry.status !== 'ready') continue;
-    for (const anim of Object.values(entry.animations)) {
-      assert.ok(existsSync(new URL(`../${anim.src}`, import.meta.url)), `${anim.src} não existe`);
+    assert.deepEqual(Object.keys(entry.animations).sort(), ['attack', 'death', 'hurt', 'idle', 'run']);
+  }
+  for (const file of manifestFiles(manifest)) {
+    assert.ok(existsSync(new URL(`../${file}`, import.meta.url)), `${file} não existe`);
+  }
+});
+
+test('o manifesto de cenário aponta para objetos existentes', () => {
+  const manifest = JSON.parse(readFileSync(new URL('../assets/manifests/environment.json', import.meta.url)));
+  assert.deepEqual(validateManifest(manifest), []);
+  for (const name of ['tree_a', 'tree_b', 'crate', 'barrel', 'rock_a', 'banner_blue', 'banner_red']) {
+    assert.ok(manifest.props[name], `objeto ${name} ausente`);
+  }
+  for (const file of manifestFiles(manifest)) {
+    assert.ok(existsSync(new URL(`../${file}`, import.meta.url)), `${file} não existe`);
+  }
+});
+
+test('todas as habilidades têm um ícone desenhado', () => {
+  for (const id of CLASS_ORDER) {
+    for (const a of CLASSES[id].abilities) {
+      assert.ok(existsSync(new URL(`../assets/ui/icons/${a.id}.svg`, import.meta.url)), `ícone de ${a.id} ausente`);
     }
   }
 });

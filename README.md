@@ -108,21 +108,36 @@ Princípios seguidos (handoff, seção 11.4):
 
 ## Arte e sprites
 
-A direção oficial (handoff de estilo artístico) é *Cartoon 3D Stylized*: modelos 3D renderizados em sprites 2D,
-com câmera superior inclinada. Como os sprites dependem de produção no Blender, esta versão usa **arte provisória
-desenhada por código** (personagens "chibi" com silhueta e arma próprias por classe), já com a câmera inclinada.
+A direção de arte segue o handoff de estilo artístico: *Cartoon 3D Stylized*. Os personagens e os objetos do
+cenário são **modelos 3D feitos no Blender** (formas simples, proporção "chibi", cores chapadas com leve brilho)
+renderizados como sprites 2D com contorno escuro, vistos pela mesma câmera inclinada (50°) usada no jogo.
 
-A troca para sprites reais não exige mudar código:
+| O quê | Onde | Como é gerado |
+|---|---|---|
+| 6 classes × 2 equipes × 5 animações (`idle`, `run`, `attack`, `hurt`, `death`), 4 direções | `assets/characters/<classe>/<classe>_<equipe>_<animação>.png` | `tools/art/characters.py` |
+| Cenas-fonte editáveis dos personagens | `assets/source/characters/<classe>.blend` | `tools/art/characters.py` |
+| Árvores, rochas, caixa, barril e estandartes | `assets/environment/objects/*.png` | `tools/art/props.py` |
+| Ícones das 30 habilidades e dos ataques básicos | `assets/ui/icons/*.svg` | `node tools/art/icons.mjs` |
+| Chão (grama, flores, calçamento, praças) e muralhas de pedra | gerados em tempo real | `src/render/Renderer.js` |
 
-1. Renderize as folhas PNG (256×256 por quadro; colunas = quadros, linhas = direções `down`, `left`, `right`, `up`)
-   em `assets/characters/<classe>/<classe>_<animação>.png`.
-2. Em `assets/manifests/characters.json`, ajuste quadros, FPS e origem (ponto dos pés) e mude o `status`
-   da classe para `"ready"`.
-3. Rode `npm test`: o teste do manifesto falha se algum arquivo apontado não existir.
+Cada folha tem quadros de 256×256 (colunas = quadros, linhas = direções `down`, `left`, `right`, `up`).
+Os manifestos `assets/manifests/characters.json` e `environment.json` dizem quadros, FPS, ponto dos pés e escala;
+o renderizador lê só os manifestos. Se um arquivo faltar, a classe volta para a arte provisória desenhada por
+código (`PlaceholderArt.js`), e `npm test` acusa o arquivo ausente. A colisão usa o raio da classe e nunca depende
+do tamanho do sprite.
 
-Animações previstas: `idle`, `run`, `attack`, `hurt`, `death` (4 direções nesta etapa). A colisão usa o raio
-definido nos atributos da classe e nunca depende do tamanho do sprite. Origem e licença de qualquer asset
-externo devem ser registradas em [`ASSET_CREDITS.md`](ASSET_CREDITS.md).
+Para gerar a arte de novo, use um Python com o Blender como módulo e o Pillow
+(`pip install bpy pillow`; o `bpy` acompanha a versão de Python suportada pelo Blender):
+
+```bash
+python tools/art/characters.py                     # todas as classes (ou --classes warrior mage)
+python tools/art/props.py                          # objetos de cenário
+python tools/art/optimize.py                       # reduz as folhas para paleta de 256 cores
+node tools/art/icons.mjs                           # ícones
+```
+
+`characters.py --preview` renderiza só alguns quadros para revisar modelos rapidamente. Origem e licença de
+qualquer asset externo devem ser registradas em [`ASSET_CREDITS.md`](ASSET_CREDITS.md).
 
 ## Publicação no GitHub Pages
 
@@ -136,5 +151,6 @@ em *Settings → Pages*, escolha a branch `main` e a pasta raiz.
 - Partidas só entre bots tendem a terminar por tempo (desempate por avanço e eliminações): as bases são
   fáceis de defender porque os defensores reaparecem dentro delas. O jogador costuma decidir a partida.
 - Um único mapa (`Vale das Duas Muralhas`) e um único modo (captura de base).
-- Sprites definitivos, sons gravados, progressão durante a partida e multiplayer ficam para etapas futuras.
+- Sons gravados, retratos e animações extras (habilidades específicas, 8 direções), progressão durante a
+  partida e multiplayer ficam para etapas futuras.
 - Controles apenas por teclado e mouse.

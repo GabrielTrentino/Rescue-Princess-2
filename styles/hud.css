@@ -150,7 +150,7 @@
   overflow: hidden;
   text-shadow: none;
 }
-.ability-slot .icon { font-size: 1.5em; line-height: 1; }
+.ability-slot .icon { width: 88%; height: 88%; object-fit: contain; display: block; pointer-events: none; user-select: none; }
 .ability-slot .key {
   position: absolute; left: 3px; top: 1px; font-size: 0.7em; font-weight: bold;
 }

@@ -2,6 +2,7 @@
 import { CLASSES, CLASS_ORDER } from '../classes/classDefinitions.js';
 import { keyLabel } from '../core/InputManager.js';
 import { drawPlaceholderCharacter } from '../render/PlaceholderArt.js';
+import { abilityIcon } from './HUD.js';
 
 const SCREEN_IDS = ['menu', 'classes', 'settings', 'credits', 'pause', 'results'];
 const ABILITY_KEYS = ['ability1', 'ability2', 'ability3', 'ability4', 'ability5'];
@@ -16,7 +17,8 @@ const STAT_SCALE = [
 ];
 
 export class Screens {
-  constructor(root, { onAction, bindings }) {
+  constructor(root, { onAction, bindings, sprites }) {
+    this.sprites = sprites;
     this.root = root;
     this.onAction = onAction;
     this.bindings = bindings;
@@ -54,9 +56,14 @@ export class Screens {
       card.addEventListener('dblclick', () => this.onAction('play', {}));
       grid.appendChild(card);
       this.classCards[id] = card;
-      drawPreview(card.querySelector('canvas'), def);
+      drawPreview(card.querySelector('canvas'), def, this.sprites);
     }
     this.selectClass(selectedId);
+  }
+
+  // Redesenha os retratos das classes (por exemplo, quando os sprites terminam de carregar).
+  refreshPreviews() {
+    for (const [id, card] of Object.entries(this.classCards ?? {})) drawPreview(card.querySelector('canvas'), CLASSES[id], this.sprites);
   }
 
   selectClass(id) {
@@ -69,7 +76,7 @@ export class Screens {
     }).join('');
     const abilities = def.abilities.map((a, i) => `
       <li>
-        <span class="ab-icon">${a.icon}</span>
+        <img class="ab-icon" src="${abilityIcon(a)}" alt="${a.icon}">
         <span><b>${a.name}</b><small>${a.description}</small></span>
         <span class="ab-key"><kbd>${keyLabel(this.bindings[ABILITY_KEYS[i]][0])}</kbd> ${a.cooldown} s</span>
       </li>`).join('');
@@ -146,8 +153,15 @@ export class Screens {
   }
 }
 
-function drawPreview(canvas, def) {
+function drawPreview(canvas, def, sprites) {
   const ctx = canvas.getContext('2d');
+  const frame = sprites?.frame(def.id, 'blue', 'idle', 0, Math.PI / 2);
+  if (frame) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const s = 0.62;
+    ctx.drawImage(frame.img, frame.sx, frame.sy, frame.sw, frame.sh, 60 - frame.ox * s, 112 - frame.oy * s, frame.sw * s, frame.sh * s);
+    return;
+  }
   const fake = {
     classId: def.id,
     team: 'blue',

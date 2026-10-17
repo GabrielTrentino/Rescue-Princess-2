@@ -40,7 +40,7 @@ export class Game {
     this.renderer = new Renderer(this.canvas, this.camera, this.sprites);
     this.sfx = new Sfx();
     this.hud = new HUD(root.querySelector('#hud'), this.bindings);
-    this.screens = new Screens(root, { onAction: (a) => this.onAction(a), bindings: this.bindings });
+    this.screens = new Screens(root, { onAction: (a) => this.onAction(a), bindings: this.bindings, sprites: this.sprites });
     this.scene = null;
     this.match = null;
     this.effects = null;
@@ -67,7 +67,8 @@ export class Game {
   }
 
   async start() {
-    this.sprites.load('assets/manifests/characters.json');
+    this.sprites.onChange(() => this.screens.refreshPreviews());
+    this.sprites.load('assets/manifests/characters.json', 'assets/manifests/environment.json');
     this.screens.buildClassSelection(this.settings.playerClassId, (id) => this.selectClass(id));
     this.screens.setMenuClass(this.settings.playerClassId);
     this.startDemo();

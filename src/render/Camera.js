@@ -1,7 +1,7 @@
 // Câmera com inclinação: o plano do chão é achatado verticalmente (TILT) para simular a
 // visão superior inclinada do handoff de arte, enquanto personagens são desenhados "em pé".
 // A lógica do jogo continua em coordenadas de chão (x, y) sem inclinação.
-export const TILT = 0.78;
+export const TILT = Math.sin((50 * Math.PI) / 180); // mesma inclinação da câmera usada nos renders (50°)
 
 export class Camera {
   constructor(viewW, viewH, zoom = 1) {

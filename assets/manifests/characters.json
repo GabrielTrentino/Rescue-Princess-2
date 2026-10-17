@@ -1,50 +1,50 @@
 {
-  "version": 1,
-  "notes": "Manifesto de sprites dos personagens. Folhas PNG com fundo transparente: colunas = quadros, linhas = direções (ordem em 'directions'). Troque 'status' para 'ready' quando todos os arquivos da classe existirem. Origem (originX, originY) = ponto dos pés, em pixels do quadro.",
+  "version": 2,
+  "notes": "Sprites dos personagens renderizados por tools/art/characters.py (Blender). Folhas PNG por equipe ({team} = blue/red): colunas = quadros, linhas = direções na ordem de 'directions'. originX/originY = ponto dos pés no quadro. scale = fator de desenho no jogo (48 px do jogo por unidade do Blender).",
   "defaults": {
     "frameWidth": 256,
     "frameHeight": 256,
     "originX": 128,
-    "originY": 232,
+    "originY": 212,
     "directions": [
       "down",
       "left",
       "right",
       "up"
     ],
-    "scale": 0.34,
+    "scale": 0.46,
     "mirror": false
   },
   "characters": {
     "warrior": {
-      "status": "placeholder",
+      "status": "ready",
       "animations": {
         "idle": {
-          "src": "assets/characters/warrior/warrior_idle.png",
+          "src": "assets/characters/warrior/warrior_{team}_idle.png",
           "frames": 8,
           "fps": 8,
           "loop": true
         },
         "run": {
-          "src": "assets/characters/warrior/warrior_run.png",
+          "src": "assets/characters/warrior/warrior_{team}_run.png",
           "frames": 8,
-          "fps": 12,
+          "fps": 13,
           "loop": true
         },
         "attack": {
-          "src": "assets/characters/warrior/warrior_attack.png",
+          "src": "assets/characters/warrior/warrior_{team}_attack.png",
           "frames": 8,
-          "fps": 16,
+          "fps": 30,
           "loop": false
         },
         "hurt": {
-          "src": "assets/characters/warrior/warrior_hurt.png",
+          "src": "assets/characters/warrior/warrior_{team}_hurt.png",
           "frames": 4,
-          "fps": 12,
+          "fps": 16,
           "loop": false
         },
         "death": {
-          "src": "assets/characters/warrior/warrior_death.png",
+          "src": "assets/characters/warrior/warrior_{team}_death.png",
           "frames": 8,
           "fps": 10,
           "loop": false
@@ -52,34 +52,34 @@
       }
     },
     "barbarian": {
-      "status": "placeholder",
+      "status": "ready",
       "animations": {
         "idle": {
-          "src": "assets/characters/barbarian/barbarian_idle.png",
+          "src": "assets/characters/barbarian/barbarian_{team}_idle.png",
           "frames": 8,
           "fps": 8,
           "loop": true
         },
         "run": {
-          "src": "assets/characters/barbarian/barbarian_run.png",
+          "src": "assets/characters/barbarian/barbarian_{team}_run.png",
           "frames": 8,
-          "fps": 12,
+          "fps": 13,
           "loop": true
         },
         "attack": {
-          "src": "assets/characters/barbarian/barbarian_attack.png",
+          "src": "assets/characters/barbarian/barbarian_{team}_attack.png",
           "frames": 8,
-          "fps": 16,
+          "fps": 30,
           "loop": false
         },
         "hurt": {
-          "src": "assets/characters/barbarian/barbarian_hurt.png",
+          "src": "assets/characters/barbarian/barbarian_{team}_hurt.png",
           "frames": 4,
-          "fps": 12,
+          "fps": 16,
           "loop": false
         },
         "death": {
-          "src": "assets/characters/barbarian/barbarian_death.png",
+          "src": "assets/characters/barbarian/barbarian_{team}_death.png",
           "frames": 8,
           "fps": 10,
           "loop": false
@@ -87,34 +87,34 @@
       }
     },
     "mage": {
-      "status": "placeholder",
+      "status": "ready",
       "animations": {
         "idle": {
-          "src": "assets/characters/mage/mage_idle.png",
+          "src": "assets/characters/mage/mage_{team}_idle.png",
           "frames": 8,
           "fps": 8,
           "loop": true
         },
         "run": {
-          "src": "assets/characters/mage/mage_run.png",
+          "src": "assets/characters/mage/mage_{team}_run.png",
           "frames": 8,
-          "fps": 12,
+          "fps": 13,
           "loop": true
         },
         "attack": {
-          "src": "assets/characters/mage/mage_attack.png",
+          "src": "assets/characters/mage/mage_{team}_attack.png",
           "frames": 8,
-          "fps": 16,
+          "fps": 30,
           "loop": false
         },
         "hurt": {
-          "src": "assets/characters/mage/mage_hurt.png",
+          "src": "assets/characters/mage/mage_{team}_hurt.png",
           "frames": 4,
-          "fps": 12,
+          "fps": 16,
           "loop": false
         },
         "death": {
-          "src": "assets/characters/mage/mage_death.png",
+          "src": "assets/characters/mage/mage_{team}_death.png",
           "frames": 8,
           "fps": 10,
           "loop": false
@@ -122,34 +122,34 @@
       }
     },
     "archer": {
-      "status": "placeholder",
+      "status": "ready",
       "animations": {
         "idle": {
-          "src": "assets/characters/archer/archer_idle.png",
+          "src": "assets/characters/archer/archer_{team}_idle.png",
           "frames": 8,
           "fps": 8,
           "loop": true
         },
         "run": {
-          "src": "assets/characters/archer/archer_run.png",
+          "src": "assets/characters/archer/archer_{team}_run.png",
           "frames": 8,
-          "fps": 12,
+          "fps": 13,
           "loop": true
         },
         "attack": {
-          "src": "assets/characters/archer/archer_attack.png",
+          "src": "assets/characters/archer/archer_{team}_attack.png",
           "frames": 8,
-          "fps": 16,
+          "fps": 30,
           "loop": false
         },
         "hurt": {
-          "src": "assets/characters/archer/archer_hurt.png",
+          "src": "assets/characters/archer/archer_{team}_hurt.png",
           "frames": 4,
-          "fps": 12,
+          "fps": 16,
           "loop": false
         },
         "death": {
-          "src": "assets/characters/archer/archer_death.png",
+          "src": "assets/characters/archer/archer_{team}_death.png",
           "frames": 8,
           "fps": 10,
           "loop": false
@@ -157,34 +157,34 @@
       }
     },
     "mercenary": {
-      "status": "placeholder",
+      "status": "ready",
       "animations": {
         "idle": {
-          "src": "assets/characters/mercenary/mercenary_idle.png",
+          "src": "assets/characters/mercenary/mercenary_{team}_idle.png",
           "frames": 8,
           "fps": 8,
           "loop": true
         },
         "run": {
-          "src": "assets/characters/mercenary/mercenary_run.png",
+          "src": "assets/characters/mercenary/mercenary_{team}_run.png",
           "frames": 8,
-          "fps": 12,
+          "fps": 13,
           "loop": true
         },
         "attack": {
-          "src": "assets/characters/mercenary/mercenary_attack.png",
+          "src": "assets/characters/mercenary/mercenary_{team}_attack.png",
           "frames": 8,
-          "fps": 16,
+          "fps": 30,
           "loop": false
         },
         "hurt": {
-          "src": "assets/characters/mercenary/mercenary_hurt.png",
+          "src": "assets/characters/mercenary/mercenary_{team}_hurt.png",
           "frames": 4,
-          "fps": 12,
+          "fps": 16,
           "loop": false
         },
         "death": {
-          "src": "assets/characters/mercenary/mercenary_death.png",
+          "src": "assets/characters/mercenary/mercenary_{team}_death.png",
           "frames": 8,
           "fps": 10,
           "loop": false
@@ -192,34 +192,34 @@
       }
     },
     "halberdier": {
-      "status": "placeholder",
+      "status": "ready",
       "animations": {
         "idle": {
-          "src": "assets/characters/halberdier/halberdier_idle.png",
+          "src": "assets/characters/halberdier/halberdier_{team}_idle.png",
           "frames": 8,
           "fps": 8,
           "loop": true
         },
         "run": {
-          "src": "assets/characters/halberdier/halberdier_run.png",
+          "src": "assets/characters/halberdier/halberdier_{team}_run.png",
           "frames": 8,
-          "fps": 12,
+          "fps": 13,
           "loop": true
         },
         "attack": {
-          "src": "assets/characters/halberdier/halberdier_attack.png",
+          "src": "assets/characters/halberdier/halberdier_{team}_attack.png",
           "frames": 8,
-          "fps": 16,
+          "fps": 30,
           "loop": false
         },
         "hurt": {
-          "src": "assets/characters/halberdier/halberdier_hurt.png",
+          "src": "assets/characters/halberdier/halberdier_{team}_hurt.png",
           "frames": 4,
-          "fps": 12,
+          "fps": 16,
           "loop": false
         },
         "death": {
-          "src": "assets/characters/halberdier/halberdier_death.png",
+          "src": "assets/characters/halberdier/halberdier_{team}_death.png",
           "frames": 8,
           "fps": 10,
           "loop": false

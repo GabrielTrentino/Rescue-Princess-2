@@ -88,14 +88,14 @@ export class HUD {
     const basic = document.createElement('div');
     basic.className = 'ability-slot basic';
     basic.title = `Ataque básico (${keyLabel(this.bindings.attack[0])})`;
-    basic.innerHTML = `<span class="icon">${player.classDef.attack.kind === 'ranged' ? '➵' : '⚔'}</span><div class="cd-overlay"></div>`;
+    basic.innerHTML = `<img class="icon" src="assets/ui/icons/basic_${player.classDef.attack.kind === 'ranged' ? 'ranged' : 'melee'}.svg" alt=""><div class="cd-overlay"></div>`;
     box.appendChild(basic);
     this.basicSlot = basic;
     player.classDef.abilities.forEach((a, i) => {
       const slot = document.createElement('div');
       slot.className = 'ability-slot';
       slot.title = `${a.name} (${a.cooldown} s)\n${a.description}`;
-      slot.innerHTML = `<span class="key">${keyLabel(this.bindings[ABILITY_ACTIONS[i]][0])}</span><span class="icon">${a.icon}</span><div class="cd-overlay"></div><div class="cd-text"></div>`;
+      slot.innerHTML = `<span class="key">${keyLabel(this.bindings[ABILITY_ACTIONS[i]][0])}</span><img class="icon" src="${abilityIcon(a)}" alt="${a.icon}"><div class="cd-overlay"></div><div class="cd-text"></div>`;
       box.appendChild(slot);
       this.slots.push({ el: slot, def: a, overlay: slot.querySelector('.cd-overlay'), text: slot.querySelector('.cd-text'), ready: null });
     });
@@ -165,4 +165,9 @@ export class HUD {
       }
     }
   }
+}
+
+// Ícone desenhado da habilidade (assets/ui/icons/<id>.svg).
+export function abilityIcon(ability) {
+  return `assets/ui/icons/${ability.id}.svg`;
 }

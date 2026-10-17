@@ -112,10 +112,7 @@
   padding: 5px 0;
   border-bottom: 1px dashed rgba(28, 26, 43, 0.25);
 }
-.ability-list .ab-icon {
-  width: 2em; height: 2em; display: grid; place-items: center;
-  border: 2px solid var(--ink); border-radius: 8px; background: #fff;
-}
+.ability-list .ab-icon { width: 2.4em; height: 2.4em; display: block; }
 .ability-list .ab-key { font-size: 0.85em; opacity: 0.75; white-space: nowrap; }
 .ability-list small { display: block; opacity: 0.75; }
 
