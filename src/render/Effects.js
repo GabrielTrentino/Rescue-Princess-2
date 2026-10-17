@@ -37,6 +37,25 @@ export class Effects {
         this.add({ type: 'rise', x: e.x, y: e.y, radius: 90, color: '#ffd75a', life: 0.9 });
         this.floatText(e.x, e.y - 40, `Nível ${e.level}!`, '#ffd75a', 20, 1.4);
       }),
+      events.on('princess', (e) => {
+        if (e.x === undefined) return;
+        if (e.type === 'fed') this.floatText(e.x, e.y, '+ coxinha', '#ffb347', 14);
+        else if (e.type === 'levelUp') {
+          this.ring(e.x, e.y, 70, '#ffb347', 0.7);
+          this.floatText(e.x, e.y, `Nível ${e.level}!`, '#ffb347', 18);
+        } else if (e.type === 'slimmed') {
+          this.add({ type: 'rise', x: e.x, y: e.y, radius: 50, color: '#6af07a', life: 0.9 });
+          this.floatText(e.x, e.y, `Jonmaros! Nível ${e.level}`, '#6af07a', 16);
+        } else if (e.type === 'pickedUp' || e.type === 'returned') this.ring(e.x, e.y, 50, '#ff9db8', 0.6);
+      }),
+      events.on('objective', (e) => {
+        if (e.type === 'rescued' && e.x !== undefined) this.add({ type: 'beam', x: e.x, y: e.y, color: '#ffd65a', life: 2 });
+      }),
+      events.on('itemPicked', (e) => this.ring(e.x, e.y, 30, e.kind === 'coxinha' ? '#ffb347' : '#6af07a', 0.4)),
+      events.on('defenseEvolved', (e) => {
+        this.add({ type: 'rise', x: e.x, y: e.y, radius: 60, color: '#ffc93a', life: 1 });
+        this.floatText(e.x, e.y, e.name, '#ffc93a', 16);
+      }),
       events.on('buildingRebuilt', (e) => this.add({ type: 'rise', x: e.x, y: e.y, radius: 90, color: '#7dff9a', life: 0.9 })),
       events.on('defenseDestroyed', (e) => {
         this.add({ type: 'blast', x: e.x, y: e.y, radius: 50, color: '#c9a27a', life: 0.5 });

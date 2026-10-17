@@ -21,16 +21,16 @@
       <!-- HUD da partida -->
       <div id="hud" class="hidden" aria-live="polite">
         <div class="hud-top">
-          <div class="obj-bar obj-ours" title="Progresso da sua equipe na conquista da base vermelha">
-            <span class="obj-label">Conquista da base vermelha</span>
+          <div class="obj-bar obj-ours" title="Quanto falta para a sua princesa chegar em casa">
+            <span class="obj-label" id="obj-ours-label">Nossa princesa</span>
             <div class="bar"><div class="fill" id="obj-ours"></div></div>
           </div>
           <div class="hud-center">
             <div id="hud-timer">5:00</div>
             <div id="hud-score"><span class="blue">0</span> × <span class="red">0</span></div>
           </div>
-          <div class="obj-bar obj-theirs" title="Progresso inimigo na conquista da sua base">
-            <span class="obj-label">Ameaça à base azul</span>
+          <div class="obj-bar obj-theirs" title="Quanto falta para a princesa inimiga chegar na casa dela">
+            <span class="obj-label" id="obj-theirs-label">Princesa inimiga</span>
             <div class="bar"><div class="fill" id="obj-theirs"></div></div>
           </div>
         </div>
@@ -47,7 +47,7 @@
           </div>
           <div id="hud-abilities"></div>
         </div>
-        <div class="hud-hint">1–5 habilidades · F pegar arma · G melhorar · Q/E girar câmera · Esc pausa</div>
+        <div class="hud-hint">1–5 habilidades · F pegar arma ou princesa · G melhorar · Q/E girar câmera · Esc pausa</div>
       </div>
 
       <!-- Menu inicial -->
@@ -88,7 +88,6 @@
             <label>Inimigos (bots) <input type="number" name="enemiesCount" min="1" max="8" /></label>
             <label>Duração da partida (min) <input type="number" name="matchMinutes" min="1" max="20" /></label>
             <label>Tempo de respawn (s) <input type="number" name="respawnTime" min="1" max="30" /></label>
-            <label>Tempo de conquista (s) <input type="number" name="captureTime" min="3" max="60" /></label>
             <label>Dificuldade
               <select name="difficulty">
                 <option value="facil">Fácil</option>
@@ -132,7 +131,8 @@
               <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> ou setas: mover</li>
               <li>Mouse: mirar · Clique esquerdo ou <kbd>J</kbd>: ataque básico</li>
               <li><kbd>1</kbd> a <kbd>5</kbd>: habilidades (gastam a barra de ação, sem recarga)</li>
-              <li><kbd>F</kbd>: pegar arma · <kbd>G</kbd>: melhorar construção (ouro da equipe)</li>
+              <li><kbd>F</kbd>: pegar arma, carregar ou largar a princesa · <kbd>G</kbd>: melhorar construção (ouro da equipe)</li>
+              <li>Objetivo: tire a sua princesa da jaula no castelo inimigo e leve-a até a sua base. Coxinhas engordam a princesa inimiga presa no seu castelo; seringas Jonmaros emagrecem a sua.</li>
               <li><kbd>Q</kbd> <kbd>E</kbd> ou botão do meio: girar câmera · roda do mouse: zoom</li>
               <li><kbd>Esc</kbd> ou <kbd>P</kbd>: pausa · <kbd>Backspace</kbd>: reiniciar</li>
             </ul>

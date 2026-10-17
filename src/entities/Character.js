@@ -35,13 +35,15 @@ export class Character {
     this.attackAnim = 0;
     this.hurtTimer = 0;
     this.moving = false;
+    this.moveDir = null;
+    this.heldItem = null;   // 'coxinha' | 'syringe' carregado para a princesa
     this.respawnTimer = 0;
     this.taunt = null;
     this.lastHitBy = null;
     this.bufferedAbility = null;
     this.outgoingDamageMult = 1;
     this.controller = null;
-    this.stats = { kills: 0, deaths: 0, damageDealt: 0, captureTime: 0 };
+    this.stats = { kills: 0, deaths: 0, damageDealt: 0, coxinhas: 0, syringes: 0, carryTime: 0 };
   }
 
   // Troca a classe (ao pegar uma arma ou ao renascer como aldeão), mantendo a fração de vida.
@@ -128,6 +130,8 @@ export class Character {
     this.taunt = null;
     this.bufferedAbility = null;
     this.arming = null;
+    this.heldItem = null;
+    this.moveDir = null;
     this.resource = this.classDef.resource.start ?? this.classDef.resource.max;
     this.intent = { move: { x: 0, y: 0 }, aim: null, attack: false, abilities: [], interact: false };
   }

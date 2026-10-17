@@ -9,7 +9,7 @@ Toda arte, som e interface usados pelo jogo devem ter origem e licença registra
 | Armas 3D (espada, escudo, machado, cajado, besta, adaga, flecha) | `assets/models/weapons/` | KayKit Adventurers Character Pack 1.0, Kay Lousberg | CC0 1.0 | Sim | Mesma origem acima |
 | Construções, árvores, rochas, montanhas e objetos de cenário | `assets/models/world/` | KayKit Medieval Hexagon Pack 1.0, Kay Lousberg ([GitHub](https://github.com/KayKit-Game-Assets/KayKit-Medieval-Hexagon-Pack-1.0)) | CC0 1.0 | Sim | Licença original em `assets/models/LICENSE-KayKit-Medieval-Hexagon.txt` |
 | Motor 3D | `vendor/three/` | Three.js 0.170.0 ([threejs.org](https://threejs.org)) | MIT | Sim | Licença em `vendor/three/LICENSE` |
-| Alabarda, martelo, barricada e armadilha | `src/render3d/props.js` | Projeto (modelados por código) | Própria | Sim | Mesmo estilo low-poly da KayKit |
+| Alabarda, martelo, bacamarte do Engenheiro, barricada, armadilha, coroa da princesa, coxinha, seringa Jonmaros, jaula e portões da muralha | `src/render3d/props.js` | Projeto (modelados por código) | Própria | Sim | Mesmo estilo low-poly da KayKit. Os pacotes KayKit usados não têm pistola nem rifle; o blaster CC0 do Kenney Starter Kit FPS foi avaliado, mas é de ficção científica, então o bacamarte foi feito por código |
 | Chão, caminhos, praças e muralhas | `src/render3d/WorldBuilder.js` | Projeto (desenhados por código) | Própria | Sim | |
 | Ícones de habilidades | `assets/ui/icons/` | Projeto (SVG gerado por `tools/art/icons.mjs`) | Própria | Sim | |
 | Efeitos sonoros | `src/audio/Sfx.js` | Projeto (sintetizados com Web Audio) | Própria | Sim | |

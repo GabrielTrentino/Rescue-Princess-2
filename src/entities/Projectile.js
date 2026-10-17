@@ -33,7 +33,7 @@ export class Projectile {
       this.traveled += step;
       const { x, y } = this.pos;
       const wall = (x < 0 || y < 0 || x > world.map.width || y > world.map.height)
-        ? true : world.map.obstacles.find((r) => circleIntersectsRect(x, y, this.radius * 0.5, r));
+        ? true : world.map.obstacles.find((r) => !r.disabled && circleIntersectsRect(x, y, this.radius * 0.5, r));
       if (wall) {
         // Construções inimigas recebem o golpe; o resto do cenário só bloqueia.
         const building = wall.buildingKey !== undefined ? world.buildings[wall.buildingKey] : null;

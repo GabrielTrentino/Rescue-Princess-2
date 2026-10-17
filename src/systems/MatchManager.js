@@ -8,7 +8,7 @@ import { Building, upgradeBuilding } from '../world/Structures.js';
 import { spawnWeaponDrop } from '../world/Weapons.js';
 import { Character } from '../entities/Character.js';
 import { World } from '../world/World.js';
-import { CaptureObjective } from '../world/ObjectiveManager.js';
+import { PrincessObjective } from '../world/Princess.js';
 import { BotController, BOT_ROLE } from '../ai/BotController.js';
 import { spawnPoint, updateRespawns } from './RespawnSystem.js';
 
@@ -46,7 +46,7 @@ export class MatchManager {
     const difficulty = DIFFICULTY[config.difficulty] ?? DIFFICULTY.normal;
     this.rng = rng;
     this.world = new World({ map, config, rng, events: this.events });
-    this.objective = new CaptureObjective(this.world);
+    this.objective = new PrincessObjective(this.world);
     this.elapsed = 0;
     this.state = MATCH_STATE.PLAYING;
     this.result = null;
@@ -57,16 +57,18 @@ export class MatchManager {
     const shuffle = (arr) => arr.map((v) => [rng(), v]).sort((a, b) => a[0] - b[0]).map((x) => x[1]);
 
     // Construções do mapa. Cada uma que fabrica armas já começa com uma no suporte.
-    for (const def of map.buildings) {
+    map.buildings.forEach((def, i) => {
       const b = new Building({
         kind: def.kind, team: def.team, rect: { x: def.x, y: def.y, w: def.w, h: def.h },
         destroyed: def.destroyed ?? false, rackSide: def.rackSide,
       });
+      b.obstacle = world.map.obstacles.find((o) => o.buildingKey === i) ?? null;
+      if (b.destroyed && b.kind === 'wallGate') world.setObstacleEnabled(b.obstacle, false);
       world.buildings.push(b);
       if (b.classId && !b.destroyed) {
         for (const slot of [-1, 1]) spawnWeaponDrop(world, { classId: b.classId, tier: 1, x: b.rack.x, y: b.rack.y + slot * 22, buildingId: b.id });
       }
-    }
+    });
 
     // Jogador
     const p0 = spawnPoint(map, TEAMS.BLUE, 0);
@@ -163,13 +165,13 @@ export class MatchManager {
       }
     }
     const winner = this.objective.update(dt);
-    if (winner) this.end(winner, 'objective');
+    if (winner) this.end(winner, 'princess');
     else if (this.elapsed >= this.config.matchDuration) this.end(this.decideOnTimeout(), 'timeout');
   }
 
-  // Ao fim do tempo: avanço na base adversária, depois construções derrubadas, depois eliminações.
+  // Ao fim do tempo: quem levou a princesa mais perto de casa, depois construções derrubadas, depois eliminações.
   decideOnTimeout() {
-    const byObjective = this.objective.decideOnTimeout({ tiebreakKills: false });
+    const byObjective = this.objective.decideOnTimeout();
     if (byObjective) return byObjective;
     const lostBlue = this.buildingsLost(TEAMS.BLUE);
     const lostRed = this.buildingsLost(TEAMS.RED);
@@ -193,11 +195,9 @@ export class MatchManager {
       player: { ...player.stats, classId: player.classId },
       teamKills: { blue: this.teamKills(TEAMS.BLUE), red: this.teamKills(TEAMS.RED) },
       buildingsDestroyed: { blue: this.buildingsLost(TEAMS.RED), red: this.buildingsLost(TEAMS.BLUE) },
-      objectives: {
-        blueCaptured: this.objective.bases.red.progress >= 1,
-        redCaptured: this.objective.bases.blue.progress >= 1,
-        blueAdvance: this.objective.bases.red.progress,
-        redAdvance: this.objective.bases.blue.progress,
+      princesses: {
+        blue: { level: this.objective.princesses.blue.level, state: this.objective.princesses.blue.state },
+        red: { level: this.objective.princesses.red.level, state: this.objective.princesses.red.state },
       },
     };
     this.events.emit('matchEnd', this.result);

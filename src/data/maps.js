@@ -1,27 +1,35 @@
 // Definições de mapas como dados. Novos mapas podem ser adicionados aqui sem tocar na lógica de combate.
 // O lado esquerdo (equipe azul) é espelhado automaticamente para o direito (equipe vermelha).
-// Construções também viram obstáculos de colisão (o retângulo da construção bloqueia a passagem).
+// Construções também viram obstáculos de colisão (o retângulo da construção bloqueia a passagem);
+// pontos fracos das muralhas são construções que, derrubadas, deixam de bloquear.
+
+// Muralha do castelo: um pátio fechado com o portão principal voltado para o centro.
+const COMPOUND = { x: 160, y: 1080, w: 640, h: 640 };
+const WALL = 36;
 
 const LEFT_OBSTACLES = [
-  // Muralhas da base azul, com portões voltados para o centro.
-  { x: 380, y: 1150, w: 440, h: 36, kind: 'wall' },
-  { x: 380, y: 1614, w: 440, h: 36, kind: 'wall' },
-  { x: 784, y: 1150, w: 36, h: 170, kind: 'wall' },
-  { x: 784, y: 1480, w: 36, h: 170, kind: 'wall' },
+  // Muralhas fixas do castelo (os pontos fracos estão em LEFT_BUILDINGS).
+  { x: 160, y: 1080, w: 280, h: WALL, kind: 'wall' },
+  { x: 540, y: 1080, w: 260, h: WALL, kind: 'wall' },
+  { x: 160, y: 1684, w: 280, h: WALL, kind: 'wall' },
+  { x: 540, y: 1684, w: 260, h: WALL, kind: 'wall' },
+  { x: 160, y: 1116, w: WALL, h: 568, kind: 'wall' },
+  { x: 764, y: 1116, w: WALL, h: 184, kind: 'wall' },
+  { x: 764, y: 1500, w: WALL, h: 184, kind: 'wall' },
   // Rochas
-  { x: 1180, y: 1280, w: 110, h: 240, kind: 'rock' },
-  { x: 1720, y: 860, w: 170, h: 120, kind: 'rock' },
-  { x: 1720, y: 1820, w: 170, h: 120, kind: 'rock' },
+  { x: 1420, y: 1300, w: 110, h: 200, kind: 'rock' },
+  { x: 1720, y: 820, w: 170, h: 120, kind: 'rock' },
+  { x: 1720, y: 1860, w: 170, h: 120, kind: 'rock' },
   { x: 2000, y: 300, w: 140, h: 110, kind: 'rock' },
   { x: 2000, y: 2390, w: 140, h: 110, kind: 'rock' },
   // Árvores
   ...[
-    [140, 300], [230, 420], [120, 560], [1000, 300], [1100, 380], [1620, 230], [1720, 330], [1500, 1080],
-    [1500, 1660], [1900, 1200], [1900, 1540], [140, 2440], [230, 2320], [120, 2180], [1000, 2440], [1100, 2360],
-    [1620, 2500], [1720, 2400], [600, 1000], [600, 1760], [2150, 700], [2150, 2050],
+    [140, 300], [230, 420], [120, 560], [1000, 300], [1100, 380], [1620, 230], [1720, 330], [1560, 1060],
+    [1560, 1700], [1960, 1180], [1960, 1560], [140, 2440], [230, 2320], [120, 2180], [1000, 2440], [1100, 2360],
+    [1620, 2500], [1720, 2400], [2150, 700], [2150, 2050], [80, 760], [80, 2000],
   ].map(([x, y]) => ({ x, y, w: 60, h: 60, kind: 'tree' })),
-  { x: 1100, y: 1200, w: 60, h: 50, kind: 'crate' },
-  { x: 1100, y: 1550, w: 60, h: 50, kind: 'crate' },
+  { x: 1300, y: 900, w: 60, h: 50, kind: 'crate' },
+  { x: 1300, y: 1850, w: 60, h: 50, kind: 'crate' },
 ];
 
 const CENTER_OBSTACLES = [
@@ -31,16 +39,23 @@ const CENTER_OBSTACLES = [
   ...[[2370, 120], [2370, 2620], [2600, 1100], [2140, 1620]].map(([x, y]) => ({ x, y, w: 60, h: 60, kind: 'tree' })),
 ];
 
-// Construções da equipe azul. rackSide: lado do suporte de armas (+1 = voltado para a direita).
+// Construções da equipe azul, todas perto do castelo. rackSide: lado do suporte de armas (+1 = direita).
 const LEFT_BUILDINGS = [
-  { kind: 'castle', x: 200, y: 1290, w: 210, h: 220 },
-  { kind: 'barracks', x: 880, y: 1000, w: 150, h: 150 },
-  { kind: 'lumbermill', x: 880, y: 1650, w: 150, h: 150 },
-  { kind: 'magetower', x: 1240, y: 700, w: 130, h: 130 },
-  { kind: 'archeryrange', x: 1240, y: 1970, w: 150, h: 140 },
-  { kind: 'tavern', x: 560, y: 520, w: 150, h: 150 },
-  { kind: 'blacksmith', x: 560, y: 2130, w: 150, h: 150 },
-  { kind: 'mine', x: 300, y: 820, w: 140, h: 130 },
+  { kind: 'castle', x: 220, y: 1290, w: 200, h: 220 },
+  // Pontos fracos da muralha: podem ser derrubados e o Engenheiro os conserta.
+  { kind: 'wallGate', x: 440, y: 1080, w: 100, h: WALL },
+  { kind: 'wallGate', x: 440, y: 1684, w: 100, h: WALL },
+  // Torres principais na frente do castelo.
+  { kind: 'tower', x: 1140, y: 1150, w: 80, h: 80 },
+  { kind: 'tower', x: 1140, y: 1570, w: 80, h: 80 },
+  // Uma construção por arma, em duas fileiras junto à muralha.
+  { kind: 'mine', x: 180, y: 880, w: 110, h: 110 },
+  { kind: 'tavern', x: 400, y: 880, w: 110, h: 110 },
+  { kind: 'barracks', x: 620, y: 880, w: 110, h: 110 },
+  { kind: 'lumbermill', x: 180, y: 1810, w: 110, h: 110 },
+  { kind: 'blacksmith', x: 400, y: 1810, w: 110, h: 110 },
+  { kind: 'archeryrange', x: 620, y: 1810, w: 110, h: 110 },
+  { kind: 'magetower', x: 860, y: 1110, w: 100, h: 100 },
 ];
 
 // Ruínas neutras no meio: um Engenheiro pode reconstruí-las para a sua equipe (mercados geram ouro).
@@ -49,8 +64,27 @@ const CENTER_BUILDINGS = [
   { kind: 'market', team: 'neutral', destroyed: true, x: 2330, y: 2180, w: 140, h: 140 },
 ];
 
-function mirror(obstacles, width) {
-  return obstacles.map((o) => ({ ...o, x: width - o.x - o.w }));
+// Relevo (só visual): platôs com rampas. height em unidades 3D; ramp em pixels a partir da borda.
+const LEFT_TERRAIN = [
+  { ...COMPOUND, height: 1.0, ramp: 150 },
+  { x: 190, y: 1230, w: 330, h: 330, height: 2.0, ramp: 50 }, // andar de cima, em volta do castelo
+  { x: 1640, y: 1160, w: 420, h: 480, height: 1.3, ramp: 220 },
+  { x: 1250, y: 420, w: 900, h: 200, height: -0.8, ramp: 170 },
+  { x: 1250, y: 2180, w: 900, h: 200, height: -0.8, ramp: 170 },
+];
+const CENTER_TERRAIN = [{ x: 2150, y: 1100, w: 500, h: 600, height: 0.8, ramp: 260 }];
+
+// Onde aparecem as coxinhas (alimentam a princesa) e as seringas Jonmaros (emagrecem a princesa).
+const LEFT_COXINHAS = [[1450, 720], [1450, 2080]];
+const CENTER_COXINHAS = [[2400, 760], [2400, 2040]];
+const SYRINGES = [[2400, 260], [2400, 2540]];
+
+function mirror(list, width) {
+  return list.map((o) => ({ ...o, x: width - o.x - o.w }));
+}
+
+function mirrorPoints(list, width) {
+  return list.map(([x, y]) => [width - x, y]);
 }
 
 function buildSymmetricMap(def) {
@@ -59,10 +93,17 @@ function buildSymmetricMap(def) {
   const center = def.centerBuildings.map((b) => ({ ...b, rackSide: 1 }));
   const buildings = [...blue, ...red, ...center];
   const buildingRects = buildings.map((b, i) => ({ x: b.x, y: b.y, w: b.w, h: b.h, kind: 'building', buildingKey: i }));
+  const compoundRed = mirror([def.compound], def.width)[0];
   return {
     ...def,
     buildings,
     obstacles: [...def.left, ...mirror(def.left, def.width), ...def.center, ...buildingRects],
+    terrain: [...def.leftTerrain, ...mirror(def.leftTerrain, def.width), ...def.centerTerrain],
+    castleAreas: { blue: def.compound, red: compoundRed },
+    coxinhaSpots: [...def.leftCoxinhas, ...mirrorPoints(def.leftCoxinhas, def.width), ...def.centerCoxinhas].map(([x, y]) => ({ x, y })),
+    syringeSpots: def.syringes.map(([x, y]) => ({ x, y })),
+    // A princesa de cada equipe fica presa no castelo da equipe adversária.
+    prisons: { blue: { x: def.width - def.prison.x, y: def.prison.y }, red: { ...def.prison } },
   };
 }
 
@@ -76,9 +117,16 @@ export const MAPS = {
     center: CENTER_OBSTACLES,
     leftBuildings: LEFT_BUILDINGS,
     centerBuildings: CENTER_BUILDINGS,
+    leftTerrain: LEFT_TERRAIN,
+    centerTerrain: CENTER_TERRAIN,
+    leftCoxinhas: LEFT_COXINHAS,
+    centerCoxinhas: CENTER_COXINHAS,
+    syringes: SYRINGES,
+    compound: COMPOUND,
+    prison: { x: 330, y: 1610 },
     bases: {
-      blue: { x: 580, y: 1400, radius: 170, name: 'Base Azul' },
-      red: { x: 4220, y: 1400, radius: 170, name: 'Base Vermelha' },
+      blue: { x: 640, y: 1400, radius: 110, name: 'Base Azul' },
+      red: { x: 4160, y: 1400, radius: 110, name: 'Base Vermelha' },
     },
   }),
 };

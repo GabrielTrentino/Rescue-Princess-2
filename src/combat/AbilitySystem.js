@@ -3,7 +3,7 @@
 import { angleTo, dist, fromAngle } from '../core/math.js';
 import { applySlow, applyStun, fireProjectile, meleeStrike } from './CombatSystem.js';
 import { dealDamage } from './DamageSystem.js';
-import { edgeDistance, placeDefense, repairNear } from '../world/Structures.js';
+import { edgeDistance, placeDefense, repairNear, chargeEvolution } from '../world/Structures.js';
 
 export const FAIL = Object.freeze({
   DEAD: 'morto',
@@ -149,6 +149,15 @@ const EFFECTS = {
 
   build(world, caster, e, { aim }) {
     const at = clampAim(caster, aim, e.maxRange);
+    // Mirando uma torre própria que pode evoluir: em vez de outra torre, enche a barra dela.
+    if (e.charge) {
+      const own = world.defenses.find((d) => d.alive && d.team === caster.team && d.type.evolvesTo && dist(d.pos, at) <= d.radius + 50);
+      if (own) {
+        chargeEvolution(world, own, own.maxHp * e.charge);
+        world.events.emit('fx', { kind: 'repair', x: own.pos.x, y: own.pos.y, team: caster.team, ownerId: caster.id });
+        return { ok: true, defense: own };
+      }
+    }
     const result = placeDefense(world, caster, e.structure, at);
     if (result.ok) world.events.emit('fx', { kind: 'build', x: result.defense.pos.x, y: result.defense.pos.y, team: caster.team, ownerId: caster.id });
     return result;

@@ -91,7 +91,6 @@ export class Screens {
     f.enemiesCount.value = settings.enemiesCount;
     f.matchMinutes.value = Math.round(settings.matchDuration / 60);
     f.respawnTime.value = settings.respawnTime;
-    f.captureTime.value = settings.captureTime;
     f.difficulty.value = settings.difficulty;
     f.showDamageNumbers.checked = settings.showDamageNumbers;
     f.sound.checked = settings.sound;
@@ -109,7 +108,6 @@ export class Screens {
       enemiesCount: int(f.enemiesCount, 1, 8, settings.enemiesCount),
       matchDuration: int(f.matchMinutes, 1, 20, settings.matchDuration / 60) * 60,
       respawnTime: int(f.respawnTime, 1, 30, settings.respawnTime),
-      captureTime: int(f.captureTime, 3, 60, settings.captureTime),
       difficulty: f.difficulty.value,
       showDamageNumbers: f.showDamageNumbers.checked,
       sound: f.sound.checked,
@@ -123,11 +121,11 @@ export class Screens {
     title.textContent = labels[result.outcome];
     title.className = result.outcome;
     const reasons = {
-      objective: result.outcome === 'victory' ? 'Sua equipe conquistou a base vermelha.' : 'A equipe vermelha conquistou a sua base.',
+      princess: result.outcome === 'victory' ? 'Sua equipe resgatou a princesa e a levou para casa!' : 'A equipe vermelha resgatou a princesa dela.',
       castle: result.outcome === 'victory' ? 'Sua equipe derrubou o castelo vermelho.' : 'A equipe vermelha derrubou o seu castelo.',
       timeout: result.outcome === 'draw'
         ? 'O tempo acabou com as equipes empatadas.'
-        : 'O tempo acabou: vence quem avançou mais na base adversária (e, em caso de empate, quem eliminou mais).',
+        : 'O tempo acabou: vence quem levou a princesa mais perto de casa (e, em caso de empate, quem eliminou mais).',
     };
     this.root.querySelector('#result-reason').textContent = reasons[result.reason];
     const mm = Math.floor(result.duration / 60);
@@ -137,12 +135,13 @@ export class Screens {
       ['Suas eliminações', result.player.kills],
       ['Suas mortes', result.player.deaths],
       ['Dano causado', Math.round(result.player.damageDealt)],
-      ['Tempo conquistando', `${Math.round(result.player.captureTime)} s`],
+      ['Coxinhas entregues', result.player.coxinhas],
+      ['Seringas Jonmaros usadas', result.player.syringes],
+      ['Tempo carregando a princesa', `${Math.round(result.player.carryTime)} s`],
       ['Eliminações (azul × vermelho)', `${result.teamKills.blue} × ${result.teamKills.red}`],
       ['Construções destruídas (azul × vermelho)', `${result.buildingsDestroyed.blue} × ${result.buildingsDestroyed.red}`],
-      ['Conquista da base vermelha', `${Math.round(result.objectives.blueAdvance * 100)}%`],
-      ['Conquista da base azul', `${Math.round(result.objectives.redAdvance * 100)}%`],
-      ['Objetivos concluídos', result.objectives.blueCaptured ? '1 (base vermelha)' : '0'],
+      ['Nível da princesa azul', result.princesses.blue.level],
+      ['Nível da princesa vermelha', result.princesses.red.level],
     ];
     this.root.querySelector('#result-table').innerHTML = rows.map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join('');
     this.show('results');

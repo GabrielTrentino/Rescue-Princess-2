@@ -8,17 +8,19 @@ import { tryUseAbility, updateZones, FAIL } from '../combat/AbilitySystem.js';
 import { dealDamage, heal } from '../combat/DamageSystem.js';
 import { updateBuildings, updateDefenses, destroyBuilding, destroyDefense, upgradeBuilding, edgeDistance } from './Structures.js';
 import { updatePickup, startPickup, dropOnDeath, updateDrops } from './Weapons.js';
+import { insideCastle } from './Terrain.js';
 
 const navCache = new Map();
 
 export class World {
   constructor({ map, config, rng, events }) {
-    this.map = map;
+    // Cópia própria dos obstáculos: trechos de muralha podem ser derrubados durante a partida.
+    this.map = { ...map, obstacles: map.obstacles.map((o) => ({ ...o })) };
     this.config = config;
     this.rng = rng;
     this.events = events;
     if (!navCache.has(map.id)) navCache.set(map.id, new NavGrid(map));
-    this.nav = navCache.get(map.id);
+    this.nav = navCache.get(map.id).cloneFor(this.map);
     this.characters = [];
     this.buildings = [];
     this.defenses = [];
@@ -43,6 +45,14 @@ export class World {
   // Personagem, construção ou defesa com esse id.
   getEntity(id) {
     return this.getCharacter(id) ?? this.buildings.find((b) => b.id === id) ?? this.defenses.find((d) => d.id === id) ?? null;
+  }
+
+  // Liga ou desliga um obstáculo (muralha derrubada ou reconstruída) e atualiza a grade de navegação.
+  setObstacleEnabled(rect, enabled) {
+    if (!rect || rect.disabled === !enabled) return;
+    rect.disabled = !enabled;
+    this.nav.refreshRect(rect);
+    if (enabled) for (const c of this.characters) if (c.alive) resolveStatic(c.pos, c.radius, this.map);
   }
 
   addGold(team, amount) {
@@ -96,6 +106,7 @@ export class World {
     if (killer && killer !== victim && killer.stats.kills !== undefined && !killer.isStructure) killer.stats.kills++;
     if (killer && killer.team !== victim.team) this.addGold(killer.team, 20);
     dropOnDeath(this, victim);
+    this.princess?.dropItem(victim);
     this.tasks = this.tasks.filter((t) => t.ownerId !== victim.id);
     victim.controller?.onDeath?.();
     this.events.emit('death', {
@@ -137,10 +148,12 @@ export class World {
     const stunned = c.stunned;
     c.moving = false;
 
+    // F: a princesa tem prioridade sobre as armas do chão.
+    const carrying = this.princess?.carrying(c) ?? null;
     if (c.arming) {
       updatePickup(this, c, dt);
     } else if (intent.interact && !stunned && !c.motion) {
-      startPickup(this, c);
+      if (!this.princess?.interact(c)) startPickup(this, c);
     }
     intent.interact = false;
     if (intent.upgrade) {
@@ -158,20 +171,30 @@ export class World {
       if (len > 0.05) {
         // Normaliza para que a diagonal não seja mais rápida que o movimento reto.
         const n = len > 1 ? { x: m.x / len, y: m.y / len } : m;
-        const speed = c.getStat('speed') * (c.actionTimer > 0 ? 0.4 : 1);
+        let speed = c.getStat('speed') * (c.actionTimer > 0 ? 0.4 : 1);
+        // Aldeões correm 80% mais dentro do próprio castelo; carregar a princesa pesa.
+        if (c.classId === 'villager' && insideCastle(this.map, c.team, c.pos.x, c.pos.y)) speed *= 1.8;
+        if (carrying) speed *= this.princess.speedMultiplier(c);
         moveCircle(this.map, c.pos, c.radius, n.x * speed * dt, n.y * speed * dt);
         this.pushOutOfDefenses(c);
         c.moving = true;
+        c.moveDir = n;
       }
     }
 
-    if (!stunned && !c.motion && !c.arming && intent.aim) {
-      const dx = intent.aim.x - c.pos.x;
-      const dy = intent.aim.y - c.pos.y;
-      if (dx * dx + dy * dy > 4) c.facing = Math.atan2(dy, dx);
+    if (!stunned && !c.motion && !c.arming) {
+      // Olha para a mira; sem mira (ou carregando a princesa), olha para onde anda.
+      const aim = carrying ? null : intent.aim;
+      if (aim) {
+        const dx = aim.x - c.pos.x;
+        const dy = aim.y - c.pos.y;
+        if (dx * dx + dy * dy > 4) c.facing = Math.atan2(dy, dx);
+      } else if (c.moving && c.moveDir) {
+        c.facing = Math.atan2(c.moveDir.y, c.moveDir.x);
+      }
     }
 
-    if (!stunned && !c.motion && !c.arming) {
+    if (!stunned && !c.motion && !c.arming && !carrying) {
       // Habilidades pressionadas durante a trava curta ficam em espera por um instante.
       if (c.bufferedAbility && this.time > c.bufferedAbility.until) c.bufferedAbility = null;
       const requested = [...intent.abilities];

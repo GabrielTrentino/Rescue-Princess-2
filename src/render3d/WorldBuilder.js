@@ -1,6 +1,7 @@
 // Cenário estático em 3D: chão pintado, muralhas, rochas, árvores, caixas e a moldura de montanhas.
 import * as THREE from 'three';
 import { S } from './CameraRig.js';
+import { heightAt } from '../world/Terrain.js';
 
 const TEX_SCALE = 0.5; // pixels de textura por pixel do jogo
 
@@ -78,12 +79,25 @@ export function makeGroundTexture(map) {
     ctx.ellipse(b.x + b.w / 2, b.y + b.h / 2, b.w * 0.75, b.h * 0.75, 0, 0, Math.PI * 2);
     ctx.fill();
   }
+  // Pátio de pedra dentro de cada castelo
+  for (const r of Object.values(map.castleAreas ?? {})) {
+    ctx.fillStyle = '#b3a68e';
+    ctx.fillRect(r.x, r.y, r.w, r.h);
+    for (let y = r.y; y < r.y + r.h; y += 40) {
+      for (let x = r.x + ((y / 40) % 2) * 20; x < r.x + r.w; x += 40) {
+        const shade = 168 + Math.floor(rand() * 30);
+        ctx.fillStyle = `rgb(${shade},${shade - 10},${shade - 30})`;
+        ctx.fillRect(x + 2, y + 2, 36, 36);
+      }
+    }
+  }
   // Tufos e flores
   const flowers = ['#fff6e0', '#ffd65a', '#ff9db8', '#b8a6ff'];
   for (let i = 0; i < 5000; i++) {
     const x = rand() * MW;
     const y = rand() * MH;
     if (ctx.isPointInStroke(path, x * TEX_SCALE, y * TEX_SCALE)) continue;
+    if (Object.values(map.castleAreas ?? {}).some((r) => x > r.x && x < r.x + r.w && y > r.y && y < r.y + r.h)) continue;
     if (rand() < 0.85) {
       ctx.strokeStyle = rand() < 0.5 ? '#4f9a3c' : '#62b046';
       ctx.lineWidth = 3;
@@ -174,7 +188,7 @@ function makeWall(o, tex) {
   const g = new THREE.Group();
   const w = o.w * S;
   const d = o.h * S;
-  const geo = new THREE.BoxGeometry(w, WALL_H, d);
+  const geo = new THREE.BoxGeometry(w, WALL_H + 1.2, d);
   const long = Math.max(w, d);
   const t = tex.clone();
   t.needsUpdate = true;
@@ -182,7 +196,7 @@ function makeWall(o, tex) {
   const side = new THREE.MeshStandardMaterial({ map: t, roughness: 0.9 });
   const top = new THREE.MeshStandardMaterial({ color: 0xc9bfa9, roughness: 0.9 });
   const box = new THREE.Mesh(geo, [side, side, top, top, side, side]);
-  box.position.y = WALL_H / 2;
+  box.position.y = (WALL_H - 1.2) / 2;
   box.castShadow = true;
   box.receiveShadow = true;
   g.add(box);
@@ -198,6 +212,7 @@ function makeWall(o, tex) {
     g.add(m);
   }
   g.position.set((o.x + o.w / 2) * S, 0, (o.y + o.h / 2) * S);
+  g.userData.span = { w: o.w, d: o.h };
   return g;
 }
 
@@ -214,22 +229,33 @@ export function buildStaticWorld(map, assets) {
   const root = new THREE.Group();
   const rand = rng(23);
 
-  // Chão principal e o entorno.
-  const ground = new THREE.Mesh(
-    new THREE.PlaneGeometry(map.width * S, map.height * S),
-    new THREE.MeshStandardMaterial({ map: makeGroundTexture(map), roughness: 1 }),
-  );
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.set((map.width * S) / 2, 0, (map.height * S) / 2);
+  // Chão principal com relevo (platôs, rampas e vales) e o entorno plano em volta do mapa.
+  const segX = Math.round(map.width / 24);
+  const segY = Math.round(map.height / 24);
+  const geo = new THREE.PlaneGeometry(map.width * S, map.height * S, segX, segY);
+  geo.rotateX(-Math.PI / 2);
+  geo.translate((map.width * S) / 2, 0, (map.height * S) / 2);
+  const pos = geo.attributes.position;
+  for (let i = 0; i < pos.count; i++) pos.setY(i, heightAt(map, pos.getX(i) / S, pos.getZ(i) / S));
+  geo.computeVertexNormals();
+  const ground = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: makeGroundTexture(map), roughness: 1 }));
   ground.receiveShadow = true;
   root.add(ground);
-  const outer = new THREE.Mesh(
-    new THREE.PlaneGeometry(map.width * S * 3, map.height * S * 3),
-    new THREE.MeshStandardMaterial({ color: 0x5f9a42, roughness: 1 }),
-  );
-  outer.rotation.x = -Math.PI / 2;
-  outer.position.set((map.width * S) / 2, -0.02, (map.height * S) / 2);
-  outer.receiveShadow = true;
+  const outer = new THREE.Group();
+  const W3 = map.width * S;
+  const H3 = map.height * S;
+  const M = Math.max(W3, H3) * 1.5;
+  const outerMat = new THREE.MeshStandardMaterial({ color: 0x5f9a42, roughness: 1 });
+  for (const [x, z, w, d] of [
+    [W3 / 2, -M / 2, W3 + 2 * M, M], [W3 / 2, H3 + M / 2, W3 + 2 * M, M],
+    [-M / 2, H3 / 2, M, H3], [W3 + M / 2, H3 / 2, M, H3],
+  ]) {
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), outerMat);
+    m.rotation.x = -Math.PI / 2;
+    m.position.set(x, -0.01, z);
+    m.receiveShadow = true;
+    outer.add(m);
+  }
   root.add(outer);
 
   const tex = stoneTexture();
@@ -319,6 +345,21 @@ export function buildStaticWorld(map, assets) {
       const m = placeModel(assets, name, x, y, name === 'tent' ? 2.4 : 4, rand() * 6.28);
       if (m) root.add(m);
     });
+  }
+
+  // Tudo o que foi posto em y = 0 sobe para a altura do relevo (muralhas usam o ponto mais baixo).
+  for (const o of root.children) {
+    if (o === ground || o === outer) continue;
+    const x = o.position.x / S;
+    const y = o.position.z / S;
+    let h = heightAt(map, x, y);
+    if (o.userData.span) {
+      const { w, d } = o.userData.span;
+      for (const [dx, dy] of [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5], [0, -0.5], [0, 0.5], [-0.5, 0], [0.5, 0]]) {
+        h = Math.min(h, heightAt(map, x + dx * w, y + dy * d));
+      }
+    }
+    o.position.y += h;
   }
 
   root.traverse((o) => {

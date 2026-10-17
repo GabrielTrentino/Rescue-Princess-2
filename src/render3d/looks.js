@@ -35,9 +35,9 @@ export const CLASS_LOOKS = {
     attack: ['2H_Melee_Attack_Stab'], ability: ['2H_Melee_Attack_Stab', '2H_Melee_Attack_Slice', 'Throw', 'Block', '2H_Melee_Attack_Spin'],
   },
   engineer: {
-    model: 'Barbarian', show: ['Barbarian_Cape'], cape: 'Barbarian_Cape', extra: 'hammer',
-    idle: 'Idle', run: 'Running_A',
-    attack: ['1H_Melee_Attack_Chop'], ability: ['Use_Item', 'Use_Item', 'Use_Item', 'Interact', 'Interact'],
+    model: 'Barbarian', show: ['Barbarian_Cape'], cape: 'Barbarian_Cape', extra: 'blunderbuss',
+    idle: '2H_Ranged_Aiming', run: 'Running_A',
+    attack: ['2H_Ranged_Shoot'], ability: ['2H_Ranged_Shoot', 'Use_Item', 'Use_Item', 'Interact', 'Interact'],
   },
 };
 

@@ -1,16 +1,20 @@
 // Desenha a partida em 3D (Three.js): cenário, construções, defesas, armas no chão, personagens,
 // projéteis, zonas e efeitos. Só lê o estado do jogo; a simulação continua toda em 2D (pixels).
 import * as THREE from 'three';
-import { S, toVec3 } from './CameraRig.js';
+import { S, toVec3, setTerrain, groundAt } from './CameraRig.js';
+import { heightAt } from '../world/Terrain.js';
 import { CharacterView } from './CharacterView.js';
 import { buildStaticWorld } from './WorldBuilder.js';
-import { makeHalberd, makeHammer, makeBarricade, makeTrap } from './props.js';
+import { makeHalberd, makeBlunderbuss, makeBarricade, makeTrap, makeWallGate, makeRubble, mat } from './props.js';
+import { PrincessLayer } from './PrincessView.js';
 import { FX_COLORS, TEAM_COLORS } from '../render/palette.js';
 
 const BUILDING_MODEL = {
   castle: 'castle', barracks: 'barracks', lumbermill: 'lumbermill', magetower: 'tower_B', archeryrange: 'archeryrange',
-  tavern: 'tavern', blacksmith: 'blacksmith', mine: 'mine', market: 'market',
+  tavern: 'tavern', blacksmith: 'blacksmith', mine: 'mine', market: 'market', tower: 'tower_A',
 };
+const WALL_STONE = mat(0xb8ad98);
+const WALL_HEIGHT = 1.5;
 const TIER_GLOW = { 1: 0xfff6dc, 2: 0x7fd0ff, 3: 0xffc93a };
 const HAND_HEIGHT = 1.0;
 
@@ -70,10 +74,13 @@ export class Renderer3D {
     this.projectiles = new Map();
     this.zones = new Map();
     this.fx = new Map();
+    this.princessLayer?.dispose();
+    this.princessLayer = null;
     this.match = null;
   }
 
   ensureStatic(map) {
+    setTerrain((x, y) => heightAt(map, x, y));
     if (this.mapId === map.id) return;
     if (this.staticWorld) this.scene.remove(this.staticWorld);
     this.staticWorld = buildStaticWorld(map, this.assets);
@@ -105,8 +112,25 @@ export class Renderer3D {
     const g = new THREE.Group();
     const foot = Math.min(b.rect.w, b.rect.h) * S;
     const team = b.team === 'red' ? 'red' : 'blue';
+    if (b.kind === 'wallGate') {
+      // Ponto fraco da muralha: portão entre colunas; derrubado vira escombros.
+      const w = b.rect.w * S;
+      const d = b.rect.h * S;
+      g.add(b.destroyed ? makeRubble(w, d, WALL_STONE) : makeWallGate(w, d, WALL_HEIGHT, WALL_STONE));
+      if (!b.destroyed) {
+        const f = this.assets.instance(`flag_${team}`);
+        if (f) {
+          f.scale.setScalar(4);
+          f.position.y = WALL_HEIGHT;
+          g.add(f);
+        }
+      }
+      toVec3(b.pos.x, b.pos.y, 0, g.position);
+      return this.finishBuilding(g);
+    }
     const name = b.destroyed ? 'building_destroyed' : `building_${BUILDING_MODEL[b.kind]}_${team}`;
-    const model = this.fitModel(name, foot * (b.destroyed ? 1.05 : 1.12), b.kind === 'castle' ? 7 : 5);
+    const cap = b.kind === 'castle' ? 7 : b.kind === 'tower' ? 6.5 : 5;
+    const model = this.fitModel(name, foot * (b.destroyed ? 1.05 : b.kind === 'tower' ? 1.6 : 1.12), cap);
     if (model) {
       // A frente da construção olha para o centro do mapa.
       model.rotation.y = b.team === 'red' ? -Math.PI / 2 : Math.PI / 2;
@@ -133,6 +157,10 @@ export class Renderer3D {
       }
     }
     toVec3(b.pos.x, b.pos.y, 0, g.position);
+    return this.finishBuilding(g);
+  }
+
+  finishBuilding(g) {
     g.traverse((o) => {
       if (!o.isMesh) return;
       o.castShadow = o.receiveShadow = true;
@@ -218,9 +246,9 @@ export class Renderer3D {
         break;
       }
       case 'engineer': {
-        const h = makeHammer();
-        h.scale.setScalar(0.9);
-        h.position.y = -0.3;
+        const h = makeBlunderbuss();
+        h.rotation.z = Math.PI / 2;
+        h.position.x = 0.5;
         g.add(h);
         break;
       }
@@ -281,6 +309,7 @@ export class Renderer3D {
     let g;
     if (d.kind === 'arrowTower') g = this.fitModel(`building_tower_A_${team}`, 1.5);
     else if (d.kind === 'catapult') g = this.fitModel(`building_tower_catapult_${team}`, 1.9);
+    else if (d.kind === 'royalTower') g = this.fitModel(`building_tower_B_${team}`, 2.0);
     else if (d.kind === 'barricade') {
       g = new THREE.Group();
       const b = makeBarricade();
@@ -297,7 +326,7 @@ export class Renderer3D {
       if (o.isMesh && o !== ring) o.castShadow = true;
     });
     toVec3(d.pos.x, d.pos.y, 0, g.position);
-    g.userData = { born: this.time };
+    g.userData = { born: this.time, kind: d.kind };
     return g;
   }
 
@@ -306,6 +335,11 @@ export class Renderer3D {
     for (const d of world.defenses) {
       seen.add(d.id);
       let g = this.defenses.get(d.id);
+      if (g && g.userData.kind !== d.kind) {
+        // Torre evoluiu: troca o modelo e sobe de novo do chão.
+        this.dynamic.remove(g);
+        g = null;
+      }
       if (!g) {
         g = this.makeDefense(d);
         this.defenses.set(d.id, g);
@@ -355,6 +389,11 @@ export class Renderer3D {
     } else if (p.visual === 'lightning') {
       g.add(new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.08, 1.2), basic(color, 1, { blending: THREE.AdditiveBlending })));
       g.add(new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.22, 1.4), basic(color, 0.4, { blending: THREE.AdditiveBlending })));
+    } else if (p.visual === 'bullet') {
+      g.add(new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 6), new THREE.MeshStandardMaterial({ color: 0x2e2b28, metalness: 0.6, roughness: 0.3 })));
+      const trail = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.7), basic(0xffe08a, 0.7, { blending: THREE.AdditiveBlending }));
+      trail.position.z = -0.38;
+      g.add(trail);
     } else if (p.visual === 'stone') {
       g.add(new THREE.Mesh(new THREE.DodecahedronGeometry(0.12), new THREE.MeshStandardMaterial({ color: 0x9a948a, flatShading: true })));
     } else {
@@ -384,7 +423,7 @@ export class Renderer3D {
         this.dynamic.add(g);
       }
       toVec3(p.pos.x, p.pos.y, HAND_HEIGHT, g.position);
-      look.set(g.position.x + p.dir.x, HAND_HEIGHT, g.position.z + p.dir.y);
+      look.set(g.position.x + p.dir.x, g.position.y, g.position.z + p.dir.y);
       g.lookAt(look);
       if (p.visual === 'boulder' || p.visual === 'stone') g.rotation.x += this.time * 8;
       const line = g.userData.line;
@@ -392,7 +431,7 @@ export class Renderer3D {
         const owner = world.getCharacter(p.ownerId);
         if (owner) {
           const pos = line.geometry.attributes.position;
-          pos.setXYZ(0, owner.pos.x * S, HAND_HEIGHT, owner.pos.y * S);
+          pos.setXYZ(0, owner.pos.x * S, HAND_HEIGHT + groundAt(owner.pos.x, owner.pos.y), owner.pos.y * S);
           pos.setXYZ(1, g.position.x, HAND_HEIGHT, g.position.z);
           pos.needsUpdate = true;
         }
@@ -530,7 +569,7 @@ export class Renderer3D {
           g.userData.fill.scale.setScalar(Math.max(0.01, k));
           break;
         case 'rise':
-          g.position.y = k * 0.8;
+          g.position.y = groundAt(it.x, it.y) + k * 0.8;
           g.children[0].material.opacity = 0.4 * (1 - k);
           break;
         case 'beam': {
@@ -577,6 +616,8 @@ export class Renderer3D {
     this.syncDefenses(world);
     this.syncDrops(world);
     this.syncCharacters(world, dt);
+    if (!this.princessLayer) this.princessLayer = new PrincessLayer(this.assets, this.dynamic, world);
+    this.princessLayer.update(world, dt, this.time);
     this.syncProjectiles(world);
     this.syncZones(world);
     this.syncFx(effects, world);

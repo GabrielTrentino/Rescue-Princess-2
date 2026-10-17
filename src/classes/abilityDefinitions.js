@@ -23,8 +23,8 @@ const warrior = [
   {
     id: 'warrior_power_strike', name: 'Golpe Poderoso', cost: 20, icon: '⚔',
     description: 'Ataque frontal com dano aumentado que empurra os inimigos.',
-    effects: [{ type: 'melee', range: 62, arc: 110, dmg: 2.2, knockback: 70 }],
-    ai: { when: 'targetInRange', range: 58 },
+    effects: [{ type: 'melee', range: 81, arc: 110, dmg: 2.2, knockback: 70 }],
+    ai: { when: 'targetInRange', range: 75 },
   },
   {
     id: 'warrior_charge', name: 'Investida', cost: 25, icon: '➶',
@@ -62,8 +62,8 @@ const barbarian = [
   {
     id: 'barb_brutal', name: 'Golpe Brutal', cost: 25, icon: '🪓',
     description: 'Golpe pesado contra um único alvo.',
-    effects: [{ type: 'melee', range: 60, arc: 70, dmg: 3.0, maxTargets: 1 }],
-    ai: { when: 'targetInRange', range: 56 },
+    effects: [{ type: 'melee', range: 78, arc: 70, dmg: 3.0, maxTargets: 1 }],
+    ai: { when: 'targetInRange', range: 73 },
   },
   {
     id: 'barb_whirl', name: 'Giro Selvagem', cost: 30, icon: '🌀',
@@ -74,8 +74,8 @@ const barbarian = [
   {
     id: 'barb_guard_break', name: 'Quebra-Guarda', cost: 40, icon: '💥',
     description: 'Causa dano e atordoa o alvo por 1,2 s.',
-    effects: [{ type: 'melee', range: 58, arc: 80, dmg: 1.4, maxTargets: 1, stun: 1.2 }],
-    ai: { when: 'targetInRange', range: 54 },
+    effects: [{ type: 'melee', range: 75, arc: 80, dmg: 1.4, maxTargets: 1, stun: 1.2 }],
+    ai: { when: 'targetInRange', range: 70 },
   },
   {
     id: 'barb_berserk', name: 'Fúria Berserker', cost: 80, icon: '😤',
@@ -158,9 +158,9 @@ const mercenary = [
   {
     id: 'merc_quick_cut', name: 'Corte Rápido', cost: 20, icon: '🗡',
     description: 'Corte veloz em arco amplo, quase sem tempo de execução.',
-    effects: [{ type: 'melee', range: 56, arc: 130, dmg: 1.7 }],
+    effects: [{ type: 'melee', range: 73, arc: 130, dmg: 1.7 }],
     castLock: 0.05,
-    ai: { when: 'targetInRange', range: 52 },
+    ai: { when: 'targetInRange', range: 68 },
   },
   {
     id: 'merc_shadow_step', name: 'Passo Sombrio', cost: 35, icon: '💨',
@@ -174,8 +174,8 @@ const mercenary = [
   {
     id: 'merc_opportunist', name: 'Golpe Oportunista', cost: 25, icon: '🎲',
     description: 'Dano dobrado contra alvos isolados, atordoados, lentos ou com menos da metade da vida.',
-    effects: [{ type: 'melee', range: 56, arc: 80, dmg: 1.6, maxTargets: 1, vulnerableMult: 2 }],
-    ai: { when: 'targetInRange', range: 52 },
+    effects: [{ type: 'melee', range: 73, arc: 80, dmg: 1.6, maxTargets: 1, vulnerableMult: 2 }],
+    ai: { when: 'targetInRange', range: 68 },
   },
   {
     id: 'merc_smoke', name: 'Bomba de Fumaça', cost: 40, icon: '☁',
@@ -186,8 +186,8 @@ const mercenary = [
   {
     id: 'merc_execute', name: 'Execução', cost: 80, icon: '☠',
     description: 'Golpe letal: dano enorme contra inimigos com menos de 35% da vida.',
-    effects: [{ type: 'melee', range: 58, arc: 80, dmg: 1.5, maxTargets: 1, execute: { threshold: 0.35, dmg: 6 } }],
-    ai: { when: 'targetLowHp', hp: 0.35, range: 56 },
+    effects: [{ type: 'melee', range: 75, arc: 80, dmg: 1.5, maxTargets: 1, execute: { threshold: 0.35, dmg: 6 } }],
+    ai: { when: 'targetLowHp', hp: 0.35, range: 73 },
   },
 ];
 
@@ -195,14 +195,14 @@ const halberdier = [
   {
     id: 'halb_thrust', name: 'Estocada', cost: 20, icon: '↗',
     description: 'Estocada de longo alcance em linha reta.',
-    effects: [{ type: 'melee', range: 130, arc: 28, dmg: 1.8 }],
-    ai: { when: 'targetInRange', range: 120 },
+    effects: [{ type: 'melee', range: 169, arc: 28, dmg: 1.8 }],
+    ai: { when: 'targetInRange', range: 156 },
   },
   {
     id: 'halb_sweep', name: 'Varredura', cost: 25, icon: '◠',
     description: 'Atinge os inimigos num arco frontal amplo e os afasta.',
-    effects: [{ type: 'melee', range: 95, arc: 170, dmg: 1.4, knockback: 55 }],
-    ai: { when: 'targetInRange', range: 90 },
+    effects: [{ type: 'melee', range: 124, arc: 170, dmg: 1.4, knockback: 55 }],
+    ai: { when: 'targetInRange', range: 117 },
   },
   {
     id: 'halb_hook', name: 'Gancho de Alabarda', cost: 30, icon: '⚓',
@@ -229,22 +229,22 @@ const halberdier = [
 
 const engineer = [
   {
+    id: 'eng_double_shot', name: 'Tiro Duplo', cost: 20, icon: '⁑',
+    description: 'Dispara o bacamarte duas vezes seguidas, com mais dano que o tiro normal.',
+    effects: [{ type: 'projectile', count: 2, interval: 0.14, speed: 980, range: 400, dmg: 1.4, radius: 5, spread: 4, visual: 'bullet' }],
+    ai: { when: 'targetInRange', range: 380, los: true },
+  },
+  {
+    id: 'eng_tower', name: 'Torre', cost: 60, icon: '♜',
+    description: 'Constrói uma Torre de Flechas. Mirando uma torre sua, enche a segunda barra dela: cheia, a torre evolui (Canhão, depois Torre Real).',
+    effects: [{ type: 'build', structure: 'arrowTower', maxRange: 140, charge: 0.5 }],
+    ai: { when: 'build', structure: 'arrowTower' },
+  },
+  {
     id: 'eng_barricade', name: 'Barricada', cost: 30, icon: '▤',
     description: 'Ergue uma barricada resistente no ponto mirado. Bloqueia a passagem até ser destruída.',
     effects: [{ type: 'build', structure: 'barricade', maxRange: 140 }],
     ai: { when: 'build', structure: 'barricade' },
-  },
-  {
-    id: 'eng_arrow_tower', name: 'Torre de Flechas', cost: 60, icon: '♜',
-    description: 'Constrói uma torre que atira flechas nos inimigos próximos.',
-    effects: [{ type: 'build', structure: 'arrowTower', maxRange: 140 }],
-    ai: { when: 'build', structure: 'arrowTower' },
-  },
-  {
-    id: 'eng_catapult', name: 'Catapulta', cost: 90, icon: '☄',
-    description: 'Monta uma catapulta de longo alcance que lança pedras com dano em área.',
-    effects: [{ type: 'build', structure: 'catapult', maxRange: 140 }],
-    ai: { when: 'build', structure: 'catapult' },
   },
   {
     id: 'eng_trap', name: 'Armadilha de Espinhos', cost: 25, icon: '✶',
@@ -254,7 +254,7 @@ const engineer = [
   },
   {
     id: 'eng_repair', name: 'Reparar', cost: 30, icon: '✚',
-    description: 'Conserta a construção ou defesa aliada mais próxima. Perto de ruínas, reconstrói para a sua equipe.',
+    description: 'Conserta a construção, muralha ou defesa aliada mais próxima e reconstrói ruínas. Numa torre já inteira, enche a barra de evolução.',
     effects: [{ type: 'repair', radius: 110, amount: 160 }],
     ai: { when: 'repair' },
   },
