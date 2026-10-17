@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import { S } from './CameraRig.js';
 import { heightAt } from '../world/Terrain.js';
+import { buildGatehouse, collectAnimated } from './CastleBuilder.js';
 
 const TEX_SCALE = 0.5; // pixels de textura por pixel do jogo
 
@@ -78,6 +79,25 @@ export function makeGroundTexture(map) {
     ctx.beginPath();
     ctx.ellipse(b.x + b.w / 2, b.y + b.h / 2, b.w * 0.75, b.h * 0.75, 0, 0, Math.PI * 2);
     ctx.fill();
+  }
+  // Caminho de pedra do portão do castelo até a arena, passando pela praça da base.
+  for (const [team, r] of Object.entries(map.castleAreas ?? {})) {
+    const front = team === 'blue' ? 1 : -1;
+    const y = r.y + r.h / 2;
+    const x0 = front > 0 ? r.x + 240 : r.x + r.w - 240;
+    const x1 = front > 0 ? r.x + r.w + 260 : r.x - 260;
+    const [a, b] = x0 < x1 ? [x0, x1] : [x1, x0];
+    ctx.fillStyle = '#9a8f7c';
+    ctx.fillRect(a, y - 70, b - a, 140);
+    for (let x = a; x < b; x += 34) {
+      for (let k = 0; k < 4; k++) {
+        const shade = 160 + Math.floor(rand() * 40);
+        ctx.fillStyle = `rgb(${shade},${shade - 8},${shade - 26})`;
+        ctx.beginPath();
+        ctx.roundRect(x + 2 + (k % 2) * 16, y - 66 + k * 33, 28, 28, 6);
+        ctx.fill();
+      }
+    }
   }
   // Pátio de pedra dentro de cada castelo
   for (const r of Object.values(map.castleAreas ?? {})) {
@@ -347,6 +367,17 @@ export function buildStaticWorld(map, assets) {
     });
   }
 
+  // Portão principal de cada pátio murado, na abertura voltada para o centro do mapa.
+  for (const [team, area] of Object.entries(map.castleAreas ?? {})) {
+    const front = team === 'blue' ? 1 : -1;
+    const wallThick = 36;
+    const gx = front > 0 ? area.x + area.w - wallThick / 2 : area.x + wallThick / 2;
+    const gate = buildGatehouse(team, 200 * S, WALL_H, wallThick * S);
+    gate.position.set(gx * S, 0, (area.y + area.h / 2) * S);
+    gate.rotation.y = front > 0 ? 0 : Math.PI;
+    root.add(gate);
+  }
+
   // Tudo o que foi posto em y = 0 sobe para a altura do relevo (muralhas usam o ponto mais baixo).
   for (const o of root.children) {
     if (o === ground || o === outer) continue;
@@ -371,5 +402,6 @@ export function buildStaticWorld(map, assets) {
   });
   ground.castShadow = false;
   outer.castShadow = false;
+  root.userData.animated = collectAnimated(root);
   return root;
 }
