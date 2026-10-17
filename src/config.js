@@ -4,9 +4,10 @@ export const FIXED_DT = 1 / 60;
 
 export const MATCH_DEFAULTS = Object.freeze({
   mapId: 'vale',
-  alliesCount: 3,          // bots aliados além do jogador
-  enemiesCount: 4,         // bots inimigos
-  matchDuration: 300,      // segundos
+  alliesCount: 7,          // bots aliados além do jogador
+  enemiesCount: 8,         // bots inimigos
+  matchDuration: 600,      // segundos
+  goldPerSecond: 2,        // ouro que cada equipe ganha por segundo (abates e construções dão mais)
   respawnTime: 6,          // segundos
   captureTime: 12,         // segundos de presença sem oposição para conquistar uma base
   baseHealPerSecond: 0.05, // fração da vida máxima recuperada por segundo dentro da própria base

@@ -59,10 +59,11 @@ export class CaptureObjective {
   }
 
   // Ao fim do tempo: vence quem avançou mais na base adversária; depois, quem eliminou mais.
-  decideOnTimeout() {
+  decideOnTimeout({ tiebreakKills = true } = {}) {
     const blueAdvance = this.bases.red.progress;
     const redAdvance = this.bases.blue.progress;
     if (Math.abs(blueAdvance - redAdvance) > 0.01) return blueAdvance > redAdvance ? TEAMS.BLUE : TEAMS.RED;
+    if (!tiebreakKills) return null;
     const kills = (team) => this.world.characters.filter((c) => c.team === team).reduce((s, c) => s + c.stats.kills, 0);
     const kb = kills(TEAMS.BLUE);
     const kr = kills(TEAMS.RED);

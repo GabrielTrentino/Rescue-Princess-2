@@ -19,15 +19,16 @@ export function armorReduction(armor) {
  */
 export function computeDamage({ base, type = 'physical', attacker, defender, canCrit = true, critBonus = 0, basic = false, rng = Math.random }) {
   let amount = base;
-  if (attacker) {
+  if (attacker && defender.isStructure) amount *= attacker.attrs?.structureDamageMult ?? 1;
+  if (attacker && attacker.effects) {
     amount *= attacker.effects.multiplier('damageMult');
     if (basic) amount *= attacker.effects.multiplier('basicDamageMult');
     amount *= attacker.outgoingDamageMult ?? 1;
-    if (type === 'magic') amount *= 1 + attacker.getStat('magicPower') / 100;
+    if (type === 'magic') amount *= 1 + (attacker.getStat('magicPower') ?? 0) / 100;
   }
   if (type === 'physical') amount *= armorReduction(defender.getStat('armor'));
   let crit = false;
-  if (canCrit && attacker) {
+  if (canCrit && attacker && !attacker.isStructure) {
     const chance = attacker.getStat('critChance') + critBonus;
     if (rng() < chance) {
       crit = true;
@@ -39,8 +40,8 @@ export function computeDamage({ base, type = 'physical', attacker, defender, can
 }
 
 /**
- * Aplica dano a um alvo dentro de um mundo. Retorna o dano aplicado (0 se o golpe foi inválido).
- * Garante que personagens mortos não recebem dano nem causam dano.
+ * Aplica dano a um alvo (personagem, construção ou defesa). Retorna o dano aplicado (0 se o golpe foi inválido).
+ * Garante que alvos mortos ou destruídos não recebem dano.
  */
 export function dealDamage(world, attacker, defender, params) {
   if (!defender.alive) return 0;
@@ -51,16 +52,25 @@ export function dealDamage(world, attacker, defender, params) {
   defender.lastHitBy = attacker?.id ?? null;
   defender.hurtTimer = 0.25;
   if (attacker) attacker.stats.damageDealt += applied;
+  // Barras de ação que enchem em combate (ex.: fúria do bárbaro).
+  const atkRes = attacker?.classDef?.resource;
+  if (atkRes?.onHit && params.basic) attacker.gainResource(atkRes.onHit);
+  const defRes = defender.classDef?.resource;
+  if (defRes?.onHurt) defender.gainResource(applied * defRes.onHurt);
   world.events.emit('damage', {
     sourceId: attacker?.id ?? null,
     targetId: defender.id,
+    structure: defender.isStructure,
     amount: applied,
     crit,
     type: params.type ?? 'physical',
     x: defender.pos.x,
     y: defender.pos.y,
   });
-  if (defender.hp <= 0) world.killCharacter(defender, attacker);
+  if (defender.hp <= 0) {
+    if (defender.isStructure) world.destroyStructure(defender, attacker);
+    else world.killCharacter(defender, attacker);
+  }
   return applied;
 }
 

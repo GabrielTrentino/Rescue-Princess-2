@@ -18,6 +18,30 @@ export class Effects {
       }),
       events.on('fx', (e) => this.onFx(e)),
       events.on('respawn', (e) => this.ring(e.x, e.y, 40, '#ffffff', 0.5)),
+      events.on('transform', (e) => {
+        this.add({ type: 'beam', x: e.x, y: e.y, characterId: e.characterId, color: '#fff2b0', life: 0.9 });
+        this.sparks(e.x, e.y, '#ffe27a', 16, 180, 0.6);
+      }),
+      events.on('pickupStart', (e) => {
+        const c = this.getCharacter(e.characterId);
+        if (c) this.add({ type: 'rise', x: c.pos.x, y: c.pos.y, radius: 26, color: '#fff2b0', life: 1.1 });
+      }),
+      events.on('weaponSpawned', (e) => this.ring(e.x, e.y, 26, '#fff6dc', 0.5)),
+      events.on('buildingDestroyed', (e) => {
+        this.add({ type: 'blast', x: e.x, y: e.y, radius: 140, color: '#ffb36b', life: 0.8 });
+        this.sparks(e.x, e.y, '#c9a27a', 30, 320, 0.9);
+        this.floatText(e.x, e.y - 40, 'Destruída!', '#ffb36b', 20, 1.4);
+        this.onShake(4);
+      }),
+      events.on('buildingUpgraded', (e) => {
+        this.add({ type: 'rise', x: e.x, y: e.y, radius: 90, color: '#ffd75a', life: 0.9 });
+        this.floatText(e.x, e.y - 40, `Nível ${e.level}!`, '#ffd75a', 20, 1.4);
+      }),
+      events.on('buildingRebuilt', (e) => this.add({ type: 'rise', x: e.x, y: e.y, radius: 90, color: '#7dff9a', life: 0.9 })),
+      events.on('defenseDestroyed', (e) => {
+        this.add({ type: 'blast', x: e.x, y: e.y, radius: 50, color: '#c9a27a', life: 0.5 });
+        this.sparks(e.x, e.y, '#9a6334', 14, 200, 0.6);
+      }),
     ];
   }
 
@@ -91,6 +115,16 @@ export class Effects {
       case 'taunt':
         this.ring(e.x, e.y, e.radius, '#ff5a5a', 0.5, 4);
         this.floatText(e.x, e.y - 30, 'Aqui!', '#ff8a8a', 16, 0.8);
+        break;
+      case 'build':
+        this.ring(e.x, e.y, 46, FX_COLORS.build, 0.6, 4);
+        this.sparks(e.x, e.y, '#c9a27a', 12, 140, 0.5);
+        break;
+      case 'repair':
+        this.add({ type: 'rise', x: e.x, y: e.y, radius: 60, color: FX_COLORS.repair, life: 0.7 });
+        break;
+      case 'boulder':
+        this.add({ type: 'boulder', x: e.x, y: e.y, tx: e.tx, ty: e.ty, life: e.duration });
         break;
       case 'dash':
         this.sparks(e.x, e.y, '#d8c8a8', 10, 90, 0.4);

@@ -6,11 +6,15 @@ export const DEFAULT_BINDINGS = Object.freeze({
   left: ['KeyA', 'ArrowLeft'],
   right: ['KeyD', 'ArrowRight'],
   attack: ['Mouse0', 'KeyJ'],
-  ability1: ['KeyQ'],
-  ability2: ['KeyE'],
-  ability3: ['KeyR'],
-  ability4: ['KeyF'],
-  ability5: ['Space'],
+  ability1: ['Digit1', 'Numpad1'],
+  ability2: ['Digit2', 'Numpad2'],
+  ability3: ['Digit3', 'Numpad3'],
+  ability4: ['Digit4', 'Numpad4'],
+  ability5: ['Digit5', 'Numpad5'],
+  interact: ['KeyF'],
+  upgrade: ['KeyG'],
+  rotateLeft: ['KeyQ'],
+  rotateRight: ['KeyE'],
   pause: ['Escape', 'KeyP'],
   restart: ['Backspace'],
 });
@@ -24,7 +28,7 @@ export class InputManager {
     this.logical = logicalSize;
     this.down = new Set();
     this.pressed = new Set();
-    this.mouse = { x: logicalSize.width / 2, y: logicalSize.height / 2, inside: false };
+    this.mouse = { x: logicalSize.width / 2, y: logicalSize.height / 2, inside: false, dragX: 0, wheel: 0 };
     this.enabled = true;
 
     target.addEventListener('keydown', (e) => {
@@ -41,10 +45,19 @@ export class InputManager {
     });
 
     // A posição é lida na janela inteira para que elementos sobrepostos (HUD) não "congelem" a mira.
-    target.addEventListener('mousemove', (e) => this.updateMouse(e));
+    target.addEventListener('mousemove', (e) => {
+      // Arrastar com o botão do meio gira a câmera.
+      if (this.down.has('Mouse1')) this.mouse.dragX += e.movementX || 0;
+      this.updateMouse(e);
+    });
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      this.mouse.wheel += Math.sign(e.deltaY);
+    }, { passive: false });
     document.addEventListener('mouseleave', () => (this.mouse.inside = false));
     canvas.addEventListener('mousedown', (e) => {
       this.updateMouse(e);
+      if (e.button === 1) e.preventDefault();
       const code = `Mouse${e.button}`;
       if (!this.down.has(code)) this.pressed.add(code);
       this.down.add(code);
@@ -66,6 +79,16 @@ export class InputManager {
   releaseAll() {
     this.down.clear();
     this.pressed.clear();
+    this.mouse.dragX = 0;
+    this.mouse.wheel = 0;
+  }
+
+  // Giro e zoom acumulados desde a última leitura.
+  takeCameraInput() {
+    const out = { dragX: this.mouse.dragX, wheel: this.mouse.wheel };
+    this.mouse.dragX = 0;
+    this.mouse.wheel = 0;
+    return out;
   }
 
   isDown(action) {
@@ -90,6 +113,7 @@ export class InputManager {
 export function keyLabel(code) {
   if (code.startsWith('Key')) return code.slice(3);
   if (code.startsWith('Digit')) return code.slice(5);
+  if (code.startsWith('Numpad')) return code.slice(6);
   if (code === 'Space') return 'Espaço';
   if (code === 'Mouse0') return 'Clique';
   if (code === 'Escape') return 'Esc';

@@ -3,17 +3,19 @@
 import { angleTo, dist, fromAngle } from '../core/math.js';
 import { applySlow, applyStun, fireProjectile, meleeStrike } from './CombatSystem.js';
 import { dealDamage } from './DamageSystem.js';
+import { edgeDistance, placeDefense, repairNear } from '../world/Structures.js';
 
 export const FAIL = Object.freeze({
   DEAD: 'morto',
   INVALID: 'habilidade inexistente',
   STUNNED: 'atordoado',
   BUSY: 'ocupado',
-  COOLDOWN: 'em recarga',
+  RESOURCE: 'sem recurso',
 });
 
 /**
- * Tenta usar a habilidade de índice `index` (0–4). Uma tentativa inválida não consome a habilidade.
+ * Tenta usar a habilidade de índice `index` (0–4). Não há recarga: cada uso gasta `cost` da barra de ação.
+ * Uma tentativa inválida não gasta nada.
  * @returns {{ok: boolean, reason?: string}}
  */
 export function tryUseAbility(world, caster, index, aimPoint) {
@@ -21,8 +23,8 @@ export function tryUseAbility(world, caster, index, aimPoint) {
   if (!caster.alive) return fail(world, caster, def, FAIL.DEAD);
   if (!def) return fail(world, caster, def, FAIL.INVALID);
   if (caster.stunned) return fail(world, caster, def, FAIL.STUNNED);
-  if (!caster.cooldowns.isReady(def.id)) return fail(world, caster, def, FAIL.COOLDOWN);
-  if (caster.motion || caster.actionTimer > 0) return fail(world, caster, def, FAIL.BUSY);
+  if (caster.motion || caster.arming || caster.actionTimer > 0) return fail(world, caster, def, FAIL.BUSY);
+  if (caster.resource < def.cost) return fail(world, caster, def, FAIL.RESOURCE);
 
   const aim = aimPoint ?? {
     x: caster.pos.x + Math.cos(caster.facing) * 100,
@@ -33,10 +35,12 @@ export function tryUseAbility(world, caster, index, aimPoint) {
   for (const effect of def.effects) {
     const run = EFFECTS[effect.type];
     if (!run) throw new Error(`Efeito desconhecido: ${effect.type}`);
-    run(world, caster, effect, { def, aim });
+    // Efeitos de construção podem recusar (local inválido, nada para reparar) sem gastar recurso.
+    const result = run(world, caster, effect, { def, aim });
+    if (result && result.ok === false) return fail(world, caster, def, result.reason);
   }
 
-  caster.cooldowns.start(def.id, def.cooldown);
+  caster.resource -= def.cost;
   caster.actionTimer = def.castLock ?? 0.18;
   caster.lastAction = 'ability';
   caster.attackAnim = 0.3;
@@ -128,9 +132,8 @@ const EFFECTS = {
       // Golpes centrados no personagem exigem que ele siga apto; áreas já lançadas caem de qualquer forma.
       if (!fixed && !casterStillAble(caster)) return;
       const c = center();
-      for (const t of world.characters) {
-        if (!t.alive || t.team === caster.team) continue;
-        if (dist(t.pos, c) > e.radius + t.radius) continue;
+      for (const t of world.enemyTargets(caster.team)) {
+        if (edgeDistance(t, c) > e.radius) continue;
         dealDamage(world, caster, t, { base: caster.attrs.damage * e.dmg, type: e.damageType ?? caster.classDef.attack.damageType });
         if (e.stun) applyStun(world, t, e.stun, caster.id);
         if (e.slow) applySlow(world, t, e.slow, e.slowDuration ?? 1, caster.id);
@@ -142,6 +145,19 @@ const EFFECTS = {
       if (t <= 0) wave();
       else world.schedule(t, wave, fixed ? null : caster.id);
     }
+  },
+
+  build(world, caster, e, { aim }) {
+    const at = clampAim(caster, aim, e.maxRange);
+    const result = placeDefense(world, caster, e.structure, at);
+    if (result.ok) world.events.emit('fx', { kind: 'build', x: result.defense.pos.x, y: result.defense.pos.y, team: caster.team, ownerId: caster.id });
+    return result;
+  },
+
+  repair(world, caster, e) {
+    const result = repairNear(world, caster, e.radius, e.amount);
+    if (result.ok) world.events.emit('fx', { kind: 'repair', x: result.target.pos.x, y: result.target.pos.y, team: caster.team, ownerId: caster.id });
+    return result;
   },
 
   zone(world, caster, e, { aim }) {
@@ -163,9 +179,8 @@ export function updateZones(world, dt) {
     const tick = z.base > 0 && z.tickTimer <= 0;
     if (tick) z.tickTimer += z.tickInterval;
     const owner = world.getCharacter(z.ownerId);
-    for (const t of world.characters) {
-      if (!t.alive || t.team === z.team) continue;
-      if (dist(t.pos, z) > z.radius + t.radius) continue;
+    for (const t of world.enemyTargets(z.team)) {
+      if (edgeDistance(t, z) > z.radius) continue;
       if (z.slow) applySlow(world, t, z.slow, 0.25, z.ownerId, `zone-slow-${z.visual}`);
       if (tick) dealDamage(world, owner, t, { base: z.base, type: z.damageType, canCrit: false });
     }

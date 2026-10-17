@@ -1,7 +1,7 @@
 // Telas de menu (DOM): menu inicial, seleção de classe, configurações, créditos, pausa e resultado.
-import { CLASSES, CLASS_ORDER } from '../classes/classDefinitions.js';
+import { CLASSES, ALL_CLASSES } from '../classes/classDefinitions.js';
+import { BUILDING_TYPES } from '../world/Structures.js';
 import { keyLabel } from '../core/InputManager.js';
-import { drawPlaceholderCharacter } from '../render/PlaceholderArt.js';
 import { abilityIcon } from './HUD.js';
 
 const SCREEN_IDS = ['menu', 'classes', 'settings', 'credits', 'pause', 'results'];
@@ -17,8 +17,7 @@ const STAT_SCALE = [
 ];
 
 export class Screens {
-  constructor(root, { onAction, bindings, sprites }) {
-    this.sprites = sprites;
+  constructor(root, { onAction, bindings }) {
     this.root = root;
     this.onAction = onAction;
     this.bindings = bindings;
@@ -37,33 +36,27 @@ export class Screens {
     focus?.focus({ preventScroll: true });
   }
 
-  setMenuClass(classId) {
-    this.root.querySelector('#menu-class').textContent = CLASSES[classId].name;
-  }
-
-  // ---------- Seleção de classe ----------
+  // ---------- Guia das classes ----------
   buildClassSelection(selectedId, onSelect) {
     const grid = this.root.querySelector('#class-grid');
     grid.innerHTML = '';
     this.classCards = {};
-    for (const id of CLASS_ORDER) {
+    for (const id of ALL_CLASSES) {
       const def = CLASSES[id];
       const card = document.createElement('button');
       card.type = 'button';
       card.className = 'class-card';
       card.innerHTML = `<canvas width="120" height="120"></canvas><h3>${def.name}</h3><div class="role">${def.role}</div>`;
       card.addEventListener('click', () => onSelect(id));
-      card.addEventListener('dblclick', () => this.onAction('play', {}));
       grid.appendChild(card);
       this.classCards[id] = card;
-      drawPreview(card.querySelector('canvas'), def, this.sprites);
     }
     this.selectClass(selectedId);
   }
 
-  // Redesenha os retratos das classes (por exemplo, quando os sprites terminam de carregar).
-  refreshPreviews() {
-    for (const [id, card] of Object.entries(this.classCards ?? {})) drawPreview(card.querySelector('canvas'), CLASSES[id], this.sprites);
+  // Pares [classe, canvas] para desenhar os retratos 3D depois que os modelos carregam.
+  portraitTargets() {
+    return Object.entries(this.classCards ?? {}).map(([id, card]) => [id, card.querySelector('canvas')]);
   }
 
   selectClass(id) {
@@ -78,12 +71,13 @@ export class Screens {
       <li>
         <img class="ab-icon" src="${abilityIcon(a)}" alt="${a.icon}">
         <span><b>${a.name}</b><small>${a.description}</small></span>
-        <span class="ab-key"><kbd>${keyLabel(this.bindings[ABILITY_KEYS[i]][0])}</kbd> ${a.cooldown} s</span>
+        <span class="ab-key"><kbd>${keyLabel(this.bindings[ABILITY_KEYS[i]][0])}</kbd> ${a.cost} ${def.resource.name.toLowerCase()}</span>
       </li>`).join('');
     detail.innerHTML = `
       <div>
         <h3>${def.name} — ${def.role}</h3>
         <p>${def.description}</p>
+        <p><small>${source(id)} Barra de ação: <b style="color:${def.resource.color}">${def.resource.name}</b> (${def.resource.max}).</small></p>
         ${stats}
         <p><small>Ataque básico: ${def.attack.kind === 'ranged' ? 'à distância' : 'corpo a corpo'}, ${def.attack.damageType === 'magic' ? 'dano mágico' : 'dano físico'}.</small></p>
       </div>
@@ -111,8 +105,8 @@ export class Screens {
     };
     return {
       ...settings,
-      alliesCount: int(f.alliesCount, 0, 6, settings.alliesCount),
-      enemiesCount: int(f.enemiesCount, 1, 7, settings.enemiesCount),
+      alliesCount: int(f.alliesCount, 0, 7, settings.alliesCount),
+      enemiesCount: int(f.enemiesCount, 1, 8, settings.enemiesCount),
       matchDuration: int(f.matchMinutes, 1, 20, settings.matchDuration / 60) * 60,
       respawnTime: int(f.respawnTime, 1, 30, settings.respawnTime),
       captureTime: int(f.captureTime, 3, 60, settings.captureTime),
@@ -130,6 +124,7 @@ export class Screens {
     title.className = result.outcome;
     const reasons = {
       objective: result.outcome === 'victory' ? 'Sua equipe conquistou a base vermelha.' : 'A equipe vermelha conquistou a sua base.',
+      castle: result.outcome === 'victory' ? 'Sua equipe derrubou o castelo vermelho.' : 'A equipe vermelha derrubou o seu castelo.',
       timeout: result.outcome === 'draw'
         ? 'O tempo acabou com as equipes empatadas.'
         : 'O tempo acabou: vence quem avançou mais na base adversária (e, em caso de empate, quem eliminou mais).',
@@ -144,6 +139,7 @@ export class Screens {
       ['Dano causado', Math.round(result.player.damageDealt)],
       ['Tempo conquistando', `${Math.round(result.player.captureTime)} s`],
       ['Eliminações (azul × vermelho)', `${result.teamKills.blue} × ${result.teamKills.red}`],
+      ['Construções destruídas (azul × vermelho)', `${result.buildingsDestroyed.blue} × ${result.buildingsDestroyed.red}`],
       ['Conquista da base vermelha', `${Math.round(result.objectives.blueAdvance * 100)}%`],
       ['Conquista da base azul', `${Math.round(result.objectives.redAdvance * 100)}%`],
       ['Objetivos concluídos', result.objectives.blueCaptured ? '1 (base vermelha)' : '0'],
@@ -153,21 +149,9 @@ export class Screens {
   }
 }
 
-function drawPreview(canvas, def, sprites) {
-  const ctx = canvas.getContext('2d');
-  const frame = sprites?.frame(def.id, 'blue', 'idle', 0, Math.PI / 2);
-  if (frame) {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const s = 0.62;
-    ctx.drawImage(frame.img, frame.sx, frame.sy, frame.sw, frame.sh, 60 - frame.ox * s, 112 - frame.oy * s, frame.sw * s, frame.sh * s);
-    return;
-  }
-  const fake = {
-    classId: def.id,
-    team: 'blue',
-    radius: def.attributes.radius,
-    facing: 0.5,
-  };
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  drawPlaceholderCharacter(ctx, fake, 50, 108, 1.3, { name: 'idle', time: 0, progress: 0 });
+// De onde vem a arma da classe.
+function source(classId) {
+  if (classId === 'villager') return 'Classe inicial de todos (e de quem reaparece).';
+  const b = Object.values(BUILDING_TYPES).find((t) => t.classId === classId);
+  return b ? `Arma fabricada em: ${b.name}.` : '';
 }

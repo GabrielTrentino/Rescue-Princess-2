@@ -1,10 +1,10 @@
 // Configurações do jogador, salvas no navegador quando possível.
 import { MATCH_DEFAULTS } from '../config.js';
 
-const KEY = 'resgate-da-princesa:settings:v1';
+const KEY = 'resgate-da-princesa:settings:v2';
 
 export function defaultSettings() {
-  return { ...MATCH_DEFAULTS, playerClassId: 'warrior' };
+  return { ...MATCH_DEFAULTS };
 }
 
 export function loadSettings() {

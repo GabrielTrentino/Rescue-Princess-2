@@ -1,10 +1,10 @@
-// Gera os ícones das 30 habilidades (SVG 128×128) em assets/ui/icons/.
+// Gera os ícones de todas as habilidades (SVG 128×128) em assets/ui/icons/.
 // Estilo: moldura arredondada na cor da classe, símbolo claro com contorno escuro e brilho suave,
 // coerente com a interface "fantasia cartoon" do handoff de arte.
 // Uso: node tools/art/icons.mjs
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { CLASSES, CLASS_ORDER } from '../../src/classes/classDefinitions.js';
+import { CLASSES, ALL_CLASSES } from '../../src/classes/classDefinitions.js';
 
 const OUT = fileURLToPath(new URL('../../assets/ui/icons/', import.meta.url));
 const INK = '#1c1830';
@@ -16,6 +16,8 @@ const CLASS_BG = {
   archer: ['#7cc56a', '#2f7a33'],
   mercenary: ['#8a83b0', '#3b3754'],
   halberdier: ['#e6be55', '#9a6f1c'],
+  villager: ['#d8c49a', '#8a7450'],
+  engineer: ['#e09a48', '#7a4a1c'],
 };
 
 // Símbolos desenhados num espaço de 128×128. Cores: m = metal, w = madeira, f = fogo, i = gelo, a = arcano, g = ouro.
@@ -62,10 +64,24 @@ const G = {
   hook: () => `<path d="M64 14 V70 C64 92 40 96 34 78" fill="none" stroke="${INK}" stroke-width="18" stroke-linecap="round"/><path d="M64 14 V70 C64 92 40 96 34 78" fill="none" stroke="${C.s}" stroke-width="9" stroke-linecap="round"/><path d="M26 70 L34 92 L46 76 Z" fill="${C.s}" ${sw}/>`,
   wall: () => `<rect x="20" y="36" width="88" height="62" rx="6" fill="${C.s}" ${sw}/><g stroke="${INK}" stroke-width="4"><path d="M20 57 H108 M20 77 H108 M50 36 V57 M78 36 V57 M36 57 V77 M64 57 V77 M92 57 V77 M50 77 V98 M78 77 V98"/></g>`,
   star4: () => `<path d="M64 10 L76 52 L118 64 L76 76 L64 118 L52 76 L10 64 L52 52 Z" fill="${C.g}" ${sw}/>`,
+  stone: () => `<path d="M40 50 L62 34 L90 42 L100 70 L82 94 L50 92 L32 72 Z" fill="${C.s}" ${sw}/><path d="M48 54 L62 44 L76 48" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" opacity="0.7"/>`,
+  logs: () => [-30, -10, 10, 30].map((x) => `<g transform="translate(${64 + x} 64)"><rect x="-8" y="-30" width="16" height="66" rx="5" fill="${C.w}" ${sw}/><path d="M-8 -30 L0 -46 L8 -30 Z" fill="${C.w}" ${sw}/></g>`).join('') + `<rect x="22" y="58" width="84" height="10" rx="4" fill="#7a4a24" ${sw}/>`,
+  tower: () => `<path d="M42 110 L48 44 H80 L86 110 Z" fill="${C.s}" ${sw}/><path d="M38 44 V26 H50 V34 H58 V26 H70 V34 H78 V26 H90 V44 Z" fill="${C.s}" ${sw}/><rect x="58" y="62" width="12" height="20" rx="5" fill="${INK}"/>`,
+  catapult: () => `<rect x="20" y="88" width="88" height="14" rx="5" fill="${C.w}" ${sw}/><circle cx="36" cy="104" r="10" fill="#7a4a24" ${sw}/><circle cx="92" cy="104" r="10" fill="#7a4a24" ${sw}/>
+    <path d="M44 88 L92 30" stroke="${INK}" stroke-width="16" stroke-linecap="round"/><path d="M44 88 L92 30" stroke="${C.w}" stroke-width="8" stroke-linecap="round"/><circle cx="96" cy="26" r="13" fill="${C.s}" ${sw}/>`,
+  spikes: () => `<rect x="18" y="86" width="92" height="14" rx="5" fill="#7a4a24" ${sw}/>` + [30, 52, 76, 98].map((x) => `<path d="M${x - 10} 88 L${x} 40 L${x + 10} 88 Z" fill="${C.m}" ${sw}/>`).join(''),
+  hammer: () => `<g transform="translate(64 64) rotate(-35)"><rect x="-5" y="-20" width="10" height="68" rx="4" fill="${C.w}" ${sw}/><rect x="-28" y="-40" width="56" height="24" rx="5" fill="#8b929c" ${sw}/></g>`,
   speed: () => `<g fill="none" stroke-linecap="round"><path d="M28 40 L60 64 L28 88" stroke="${INK}" stroke-width="18"/><path d="M28 40 L60 64 L28 88" stroke="${C.k}" stroke-width="9"/><path d="M62 40 L94 64 L62 88" stroke="${INK}" stroke-width="18"/><path d="M62 40 L94 64 L62 88" stroke="${C.g}" stroke-width="9"/></g>`,
 };
 
 const ICONS = {
+  villager_sprint: () => G.speed(),
+  villager_stone: () => G.stone(),
+  eng_barricade: () => G.logs(),
+  eng_arrow_tower: () => G.tower() + G.arrow(-45, 24, -26, 0.5),
+  eng_catapult: () => G.catapult(),
+  eng_trap: () => G.spikes(),
+  eng_repair: () => G.hammer() + G.cross().replace('<path', '<path transform="translate(62 62) scale(0.42)"'),
   warrior_power_strike: () => G.sword(0, 0, -45) + G.burst('#ffe27a').replace('<path', '<path transform="translate(54 -10) scale(0.35)"'),
   warrior_charge: () => G.dashLines() + G.shield().replace(/<path/g, '<path transform="translate(22 0) scale(0.8) translate(16 16)"'),
   warrior_defensive_stance: () => G.shield(),
@@ -110,7 +126,7 @@ function iconSvg([c1, c2], glyph) {
 
 mkdirSync(OUT, { recursive: true });
 let n = 0;
-for (const classId of CLASS_ORDER) {
+for (const classId of ALL_CLASSES) {
   for (const a of CLASSES[classId].abilities) {
     const glyph = ICONS[a.id];
     if (!glyph) throw new Error(`Sem ícone para ${a.id}`);

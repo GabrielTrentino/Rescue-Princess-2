@@ -162,7 +162,19 @@
   position: absolute; inset: 0; display: grid; place-items: center;
   font-weight: bold; font-size: 1.15em; color: #fff; text-shadow: 0 2px 0 var(--ink);
 }
+.ability-slot .cost {
+  position: absolute; right: 3px; bottom: 1px; font-size: 0.68em; font-weight: bold;
+  background: rgba(28, 26, 43, 0.8); color: #fff3d1; border-radius: 6px; padding: 0 4px;
+}
+.ability-slot:not(.ready):not(.basic) { filter: grayscale(0.85) brightness(0.7); }
 .ability-slot.ready { box-shadow: 0 0 0 2px #ffd23f inset; }
+.res-bar {
+  position: relative; height: 1.15em; margin-top: 0.3em; border: 2px solid var(--ink); border-radius: 8px;
+  background: rgba(28, 26, 43, 0.7); overflow: hidden;
+}
+.res-bar .fill { height: 100%; transition: width 0.1s linear; }
+.res-bar span { position: absolute; inset: 0; text-align: center; font-size: 0.72em; line-height: 1.5em; font-weight: bold; text-shadow: 0 1px 0 #1c1a2b; }
+#hud-gold { color: var(--gold); font-weight: bold; font-size: 0.85em; margin-top: 0.2em; }
 .ability-slot.denied { animation: shake 0.25s; border-color: #d83c30; }
 .ability-slot.used { animation: pop 0.25s; }
 .ability-slot.basic { width: 2.8em; height: 2.8em; align-self: center; }

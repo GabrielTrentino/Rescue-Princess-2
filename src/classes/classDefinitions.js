@@ -1,12 +1,33 @@
-// Atributos-base das seis classes. Valores iniciais de balanceamento, ajustáveis por dados.
+// Atributos-base das classes. Valores iniciais de balanceamento, ajustáveis por dados.
 // attackInterval = segundos entre ataques básicos; range = alcance do ataque básico (px).
+// Todos começam como Aldeão; pegar a arma de uma classe (no chão) transforma o personagem nela.
+// resource = barra de ação gasta pelas habilidades: max, regen por segundo (negativo = decai),
+// start = valor inicial, onHit / onHurt = ganho ao acertar um ataque básico / ao sofrer dano.
 import { ABILITIES_BY_CLASS } from './abilityDefinitions.js';
 
-export const CLASS_ORDER = ['warrior', 'barbarian', 'mage', 'archer', 'mercenary', 'halberdier'];
+export const VILLAGER = 'villager';
+// Classes obtidas com armas, na ordem exibida na interface.
+export const CLASS_ORDER = ['warrior', 'barbarian', 'mage', 'archer', 'mercenary', 'halberdier', 'engineer'];
+export const ALL_CLASSES = [VILLAGER, ...CLASS_ORDER];
 
 export const CLASSES = {
+  villager: {
+    id: 'villager',
+    name: 'Aldeão',
+    role: 'Sem arma',
+    weapon: null,
+    description: 'Todos começam assim. Pegue uma arma no chão para virar uma classe.',
+    attributes: {
+      maxHp: 180, damage: 9, speed: 160, range: 40, attackInterval: 0.7, armor: 0,
+      magicPower: 0, critChance: 0.05, critMult: 1.5, ccResist: 0, radius: 16,
+    },
+    attack: { kind: 'melee', arc: 90, damageType: 'physical' },
+    resource: { name: 'Estamina', color: '#9be36a', max: 100, regen: 12 },
+  },
   warrior: {
     id: 'warrior',
+    weapon: 'Espada e escudo',
+    resource: { name: 'Vigor', color: '#ffb340', max: 100, regen: 9 },
     name: 'Guerreiro',
     role: 'Linha de frente',
     description: 'Armadura robusta, espada e escudo. Segura posições e protege os aliados.',
@@ -18,6 +39,8 @@ export const CLASSES = {
   },
   barbarian: {
     id: 'barbarian',
+    weapon: 'Machado de duas mãos',
+    resource: { name: 'Fúria', color: '#ff5a3c', max: 100, regen: -2, start: 30, onHit: 9, onHurt: 0.25 },
     name: 'Bárbaro',
     role: 'Dano corpo a corpo',
     description: 'Corpo volumoso e machado enorme. Causa muito dano, mas sofre quando fica isolado.',
@@ -29,6 +52,8 @@ export const CLASSES = {
   },
   mage: {
     id: 'mage',
+    weapon: 'Cajado',
+    resource: { name: 'Mana', color: '#5aa8ff', max: 150, regen: 11 },
     name: 'Mago',
     role: 'Dano mágico e controle',
     description: 'Vestes e cajado luminoso. Dano em área e controle de grupos à distância.',
@@ -40,9 +65,11 @@ export const CLASSES = {
   },
   archer: {
     id: 'archer',
+    weapon: 'Besta',
+    resource: { name: 'Foco', color: '#c6f06a', max: 100, regen: 10 },
     name: 'Arqueiro',
     role: 'Combate à distância',
-    description: 'Arco, aljava e armadura leve. Elimina alvos vulneráveis de longe.',
+    description: 'Besta, capuz e armadura leve. Elimina alvos vulneráveis de longe.',
     attributes: {
       maxHp: 210, damage: 17, speed: 150, range: 420, attackInterval: 0.65, armor: 10,
       magicPower: 0, critChance: 0.15, critMult: 1.8, ccResist: 0, radius: 16,
@@ -51,6 +78,8 @@ export const CLASSES = {
   },
   mercenary: {
     id: 'mercenary',
+    weapon: 'Adagas',
+    resource: { name: 'Energia', color: '#ffe066', max: 100, regen: 14 },
     name: 'Mercenário',
     role: 'Flanqueamento',
     description: 'Lâminas curtas e silhueta compacta. Muito móvel, persegue e finaliza alvos.',
@@ -62,6 +91,8 @@ export const CLASSES = {
   },
   halberdier: {
     id: 'halberdier',
+    weapon: 'Alabarda',
+    resource: { name: 'Vigor', color: '#ffb340', max: 100, regen: 9 },
     name: 'Alabardeiro',
     role: 'Controle de espaço',
     description: 'Arma longa e postura defensiva. Controla passagens com estocadas e varreduras.',
@@ -71,9 +102,25 @@ export const CLASSES = {
     },
     attack: { kind: 'melee', arc: 60, damageType: 'physical' },
   },
+  engineer: {
+    id: 'engineer',
+    weapon: 'Martelo e ferramentas',
+    resource: { name: 'Materiais', color: '#d7a35a', max: 150, regen: 7, start: 90 },
+    name: 'Engenheiro',
+    role: 'Defesas e reparos',
+    description: 'Martelo pesado e caixa de ferramentas. Ergue barricadas, torres, catapultas e armadilhas, e conserta construções.',
+    attributes: {
+      maxHp: 260, damage: 15, speed: 145, range: 46, attackInterval: 0.85, armor: 25,
+      magicPower: 0, critChance: 0.05, critMult: 1.5, ccResist: 0.15, radius: 17, structureDamageMult: 2,
+    },
+    attack: { kind: 'melee', arc: 90, damageType: 'physical' },
+  },
 };
 
-for (const id of CLASS_ORDER) CLASSES[id].abilities = ABILITIES_BY_CLASS[id];
+// Bônus por nível da arma (vem do nível da construção que a fabricou).
+export const TIER_BONUS = Object.freeze({ 1: { damage: 1, maxHp: 1 }, 2: { damage: 1.15, maxHp: 1.12 }, 3: { damage: 1.3, maxHp: 1.25 } });
+
+for (const id of ALL_CLASSES) CLASSES[id].abilities = ABILITIES_BY_CLASS[id];
 
 export function getClass(id) {
   const def = CLASSES[id];
