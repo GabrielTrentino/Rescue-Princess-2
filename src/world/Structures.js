@@ -27,6 +27,13 @@ export const BUILDING_TYPES = Object.freeze({
   blacksmith: { name: 'Ferraria', classId: 'halberdier', hp: 1400, armor: 30 },
   mine: { name: 'Mina', classId: 'engineer', hp: 1300, armor: 30 },
   market: { name: 'Mercado', classId: null, hp: 1000, armor: 15, goldPerSecond: 3 },
+  // Ponto fraco da muralha do castelo: derrubado, abre passagem; só a própria equipe o reconstrói.
+  wallGate: { name: 'Muralha', classId: null, hp: 900, armor: 35, maxLevel: 1, ownTeamOnly: true },
+  // Torre principal: muita vida e muito dano, menos contra Guerreiros e Bárbaros (que sabem enfrentá-la).
+  tower: {
+    name: 'Torre principal', classId: null, hp: 3000, armor: 40, ownTeamOnly: true,
+    attack: { range: 430, interval: 1.0, damage: 42, resisted: ['warrior', 'barbarian'], resistMult: 0.3 },
+  },
 });
 
 export const MAX_LEVEL = 3;
@@ -39,8 +46,11 @@ export const REBUILD_FRACTION = 0.35;
 
 export const DEFENSE_TYPES = Object.freeze({
   barricade: { name: 'Barricada', hp: 420, armor: 40, radius: 26 },
-  arrowTower: { name: 'Torre de Flechas', hp: 320, armor: 25, radius: 24, range: 400, interval: 1.1, damage: 16 },
-  catapult: { name: 'Catapulta', hp: 340, armor: 20, radius: 30, range: 680, minRange: 170, interval: 4, damage: 42, splash: 95 },
+  // A torre do Engenheiro evolui quando a segunda barra (enchida por reparos) completa:
+  // Torre de Flechas → Torre de Canhão → Torre Real.
+  arrowTower: { name: 'Torre de Flechas', hp: 320, armor: 25, radius: 24, range: 400, interval: 1.1, damage: 16, evolvesTo: 'catapult', level: 1 },
+  catapult: { name: 'Torre de Canhão', hp: 420, armor: 30, radius: 26, range: 620, minRange: 120, interval: 3.2, damage: 46, splash: 95, evolvesTo: 'royalTower', level: 2 },
+  royalTower: { name: 'Torre Real', hp: 560, armor: 40, radius: 28, range: 480, interval: 0.6, damage: 24, level: 3 },
   trap: { name: 'Armadilha', hp: 70, armor: 0, radius: 18, trigger: 34, damage: 40, stun: 1 },
 });
 export const MAX_DEFENSES_PER_ENGINEER = 10;
@@ -85,10 +95,15 @@ export class Building extends Structure {
     this.baseHp = type.hp;
     this.classId = type.classId;
     this.destroyed = destroyed;
-    this.radius = Math.min(rect.w, rect.h) / 2;
+    // Torres atiram de fora do próprio retângulo.
+    this.radius = type.attack ? Math.hypot(rect.w, rect.h) / 2 + 4 : Math.min(rect.w, rect.h) / 2;
     // Suporte de armas em frente à construção (voltado para o centro do mapa).
     this.rack = { x: this.pos.x + rackSide * (rect.w / 2 + 46), y: this.pos.y };
     this.produceTimer = 0;
+    this.originalTeam = team;
+    this.attackTimer = 0;
+    this.facing = rackSide > 0 ? 0 : Math.PI;
+    this.obstacle = null; // retângulo de colisão ligado a esta construção (definido pela partida)
     this.applyLevel();
     if (destroyed) this.hp = 0;
   }
@@ -104,7 +119,7 @@ export class Building extends Structure {
   }
 
   get upgradeCost() {
-    return this.level < MAX_LEVEL ? UPGRADE_COST[this.level + 1] : null;
+    return this.level < (this.type.maxLevel ?? MAX_LEVEL) ? UPGRADE_COST[this.level + 1] : null;
   }
 }
 
@@ -120,6 +135,7 @@ export class Defense extends Structure {
     this.timer = type.interval ? type.interval * 0.5 : 0;
     this.facing = 0;
     this.fireAnim = 0;
+    this.evolve = 0; // segunda barra: ao encher, a torre evolui
   }
 }
 
@@ -150,6 +166,7 @@ export function updateBuildings(world, dt) {
     b.hurtTimer = Math.max(0, b.hurtTimer - dt);
     if (b.destroyed) continue;
     if (b.type.goldPerSecond) world.addGold(b.team, b.type.goldPerSecond * dt);
+    if (b.type.attack) updateTowerAttack(world, b, dt);
     if (!b.classId) continue;
     // Fabrica armas enquanto houver espaço no suporte.
     const onRack = world.drops.filter((d) => d.buildingId === b.id).length;
@@ -164,6 +181,25 @@ export function updateBuildings(world, dt) {
       spawnWeaponDrop(world, { classId: b.classId, tier: b.level, x: b.rack.x, y: b.rack.y + slot * 22, buildingId: b.id });
     }
   }
+}
+
+// Torre principal: atira na pessoa inimiga mais próxima; o dano cresce com o nível da torre.
+function updateTowerAttack(world, b, dt) {
+  const atk = b.type.attack;
+  b.attackTimer -= dt;
+  if (b.attackTimer > 0) return;
+  const target = nearestEnemy(world, b, atk.range + b.radius);
+  if (!target) {
+    b.attackTimer = 0.3;
+    return;
+  }
+  b.attackTimer = atk.interval;
+  b.facing = angleTo(b.pos, target.pos);
+  const mult = (atk.resisted.includes(target.classId) ? atk.resistMult : 1) * (1 + 0.25 * (b.level - 1));
+  fireProjectile(world, b, {
+    speed: 760, range: atk.range + b.radius + 40, radius: 7, visual: 'arrowBig', base: atk.damage * mult,
+    damageType: 'physical', fromTower: true,
+  });
 }
 
 /** Melhora uma construção da própria equipe, pagando com o ouro da equipe. */
@@ -187,6 +223,8 @@ export function destroyBuilding(world, building, attacker) {
   const loser = building.team;
   // A arma no suporte cai junto com a construção, e qualquer um pode pegá-la.
   for (const d of world.drops) if (d.buildingId === building.id) d.buildingId = null;
+  // Trecho de muralha derrubado deixa de bloquear a passagem.
+  if (building.kind === 'wallGate') world.setObstacleEnabled?.(building.obstacle, false);
   if (attacker) world.addGold(attacker.team, 60);
   world.events.emit('buildingDestroyed', {
     buildingId: building.id, kind: building.kind, team: loser, byTeam: attacker?.team ?? null, x: building.pos.x, y: building.pos.y,
@@ -196,11 +234,13 @@ export function destroyBuilding(world, building, attacker) {
 /** Reconstrói ruínas para a equipe de quem reconstrói. */
 export function rebuildBuilding(world, building, team) {
   if (!building.destroyed) return false;
+  if (building.type.ownTeamOnly && building.originalTeam !== team) return false;
   building.destroyed = false;
+  if (building.kind === 'wallGate') world.setObstacleEnabled?.(building.obstacle, true);
   building.team = team;
   building.level = 1;
   building.maxHp = building.baseHp;
-  building.hp = Math.round(building.maxHp * REBUILD_FRACTION);
+  building.hp = Math.round(building.maxHp * (building.kind === 'wallGate' ? 0.6 : REBUILD_FRACTION));
   building.produceTimer = 0;
   world.events.emit('buildingRebuilt', { buildingId: building.id, team, x: building.pos.x, y: building.pos.y });
   return true;
@@ -213,7 +253,7 @@ export function canPlaceDefense(world, kind, x, y) {
   if (pointBlocked(world.map, x, y, r + 4)) return false;
   if (world.defenses.some((d) => d.alive && dist(d.pos, { x, y }) < d.radius + r + 6)) return false;
   if (world.characters.some((c) => c.alive && dist(c.pos, { x, y }) < c.radius + r)) return false;
-  // Não bloqueia a área de conquista das bases nem os suportes de armas.
+  // Não bloqueia a praça das bases nem os suportes de armas.
   if (world.buildings.some((b) => b.rack && dist(b.rack, { x, y }) < r + 30)) return false;
   return true;
 }
@@ -286,8 +326,12 @@ export function updateDefenses(world, dt) {
     d.timer = type.interval;
     d.facing = angleTo(d.pos, target.pos);
     d.fireAnim = 0.4;
-    if (d.kind === 'arrowTower') {
-      fireProjectile(world, d, { speed: 700, range: type.range + 20, radius: 5, visual: 'arrow', base: type.damage, damageType: 'physical', fromTower: true });
+    if (d.kind === 'arrowTower' || d.kind === 'royalTower') {
+      const royal = d.kind === 'royalTower';
+      fireProjectile(world, d, {
+        speed: royal ? 820 : 700, range: type.range + 20, radius: royal ? 7 : 5, visual: royal ? 'arrowBig' : 'arrow',
+        base: type.damage, damageType: 'physical', fromTower: true, pierce: royal ? 1 : 0,
+      });
     } else if (d.kind === 'catapult') {
       // Mira onde o alvo vai estar e cai depois de um tempo de voo.
       const at = { x: target.pos.x, y: target.pos.y };
@@ -309,7 +353,7 @@ export function updateDefenses(world, dt) {
 /** Reparo do Engenheiro: conserta a construção/defesa aliada mais danificada perto, ou reconstrói ruínas. */
 export function repairNear(world, engineer, radius, amount) {
   const near = (s) => edgeDistance(s, engineer.pos) <= radius;
-  const ruin = world.buildings.find((b) => b.destroyed && near(b));
+  const ruin = world.buildings.find((b) => b.destroyed && near(b) && (!b.type.ownTeamOnly || b.originalTeam === engineer.team));
   if (ruin) {
     rebuildBuilding(world, ruin, engineer.team);
     return { ok: true, target: ruin, rebuilt: true };
@@ -317,11 +361,35 @@ export function repairNear(world, engineer, radius, amount) {
   const damaged = [...world.buildings.filter((b) => !b.destroyed), ...world.defenses]
     .filter((s) => s.team === engineer.team && s.hp < s.maxHp && near(s))
     .sort((a, b) => a.hpFraction - b.hpFraction)[0];
-  if (!damaged) return { ok: false, reason: 'nada para reparar' };
-  const healed = Math.min(amount, damaged.maxHp - damaged.hp);
-  damaged.hp += healed;
-  world.events.emit('heal', { targetId: damaged.id, amount: healed, x: damaged.pos.x, y: damaged.pos.y });
-  return { ok: true, target: damaged };
+  // Nada danificado: o reparo vai para a segunda barra de uma torre que pode evoluir.
+  const evolvable = world.defenses.find((d) => d.team === engineer.team && d.type.evolvesTo && near(d));
+  const target = damaged ?? evolvable;
+  if (!target) return { ok: false, reason: 'nada para reparar' };
+  const healed = Math.min(amount, target.maxHp - target.hp);
+  target.hp += healed;
+  if (healed > 0) world.events.emit('heal', { targetId: target.id, amount: healed, x: target.pos.x, y: target.pos.y });
+  // O que sobra do reparo enche a barra de evolução da torre.
+  if (target.type?.evolvesTo && amount > healed) chargeEvolution(world, target, amount - healed);
+  return { ok: true, target };
+}
+
+/** Enche a segunda barra de uma torre do Engenheiro; cheia, a torre vira o próximo tipo. */
+export function chargeEvolution(world, d, amount) {
+  if (!d.alive || !d.type.evolvesTo) return false;
+  d.evolve = Math.min(d.maxHp, d.evolve + amount);
+  if (d.evolve < d.maxHp) return false;
+  const kind = d.type.evolvesTo;
+  const type = DEFENSE_TYPES[kind];
+  d.kind = kind;
+  d.type = type;
+  d.maxHp = type.hp;
+  d.hp = type.hp;
+  d.armorValue = type.armor;
+  d.radius = type.radius;
+  d.evolve = 0;
+  d.timer = Math.min(d.timer, 0.5);
+  world.events.emit('defenseEvolved', { defenseId: d.id, kind, name: d.type.name, team: d.team, x: d.pos.x, y: d.pos.y });
+  return true;
 }
 
 // Um ponto está dentro de alguma construção? (para projéteis)

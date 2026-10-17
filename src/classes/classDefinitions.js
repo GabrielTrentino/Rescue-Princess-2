@@ -18,7 +18,7 @@ export const CLASSES = {
     weapon: null,
     description: 'Todos começam assim. Pegue uma arma no chão para virar uma classe.',
     attributes: {
-      maxHp: 180, damage: 9, speed: 160, range: 40, attackInterval: 0.7, armor: 0,
+      maxHp: 180, damage: 9, speed: 160, range: 52, attackInterval: 0.7, armor: 0,
       magicPower: 0, critChance: 0.05, critMult: 1.5, ccResist: 0, radius: 16,
     },
     attack: { kind: 'melee', arc: 90, damageType: 'physical' },
@@ -32,7 +32,7 @@ export const CLASSES = {
     role: 'Linha de frente',
     description: 'Armadura robusta, espada e escudo. Segura posições e protege os aliados.',
     attributes: {
-      maxHp: 340, damage: 18, speed: 150, range: 48, attackInterval: 0.75, armor: 45,
+      maxHp: 340, damage: 18, speed: 150, range: 66, attackInterval: 0.75, armor: 45,
       magicPower: 0, critChance: 0.05, critMult: 1.5, ccResist: 0.3, radius: 18,
     },
     attack: { kind: 'melee', arc: 100, damageType: 'physical' },
@@ -45,7 +45,7 @@ export const CLASSES = {
     role: 'Dano corpo a corpo',
     description: 'Corpo volumoso e machado enorme. Causa muito dano, mas sofre quando fica isolado.',
     attributes: {
-      maxHp: 300, damage: 26, speed: 155, range: 46, attackInterval: 0.8, armor: 20,
+      maxHp: 300, damage: 26, speed: 155, range: 66, attackInterval: 0.8, armor: 20,
       magicPower: 0, critChance: 0.12, critMult: 1.7, ccResist: 0.15, radius: 19,
     },
     attack: { kind: 'melee', arc: 110, damageType: 'physical' },
@@ -84,7 +84,7 @@ export const CLASSES = {
     role: 'Flanqueamento',
     description: 'Lâminas curtas e silhueta compacta. Muito móvel, persegue e finaliza alvos.',
     attributes: {
-      maxHp: 235, damage: 15, speed: 180, range: 42, attackInterval: 0.5, armor: 15,
+      maxHp: 235, damage: 15, speed: 180, range: 58, attackInterval: 0.5, armor: 15,
       magicPower: 0, critChance: 0.2, critMult: 1.8, ccResist: 0.1, radius: 16,
     },
     attack: { kind: 'melee', arc: 90, damageType: 'physical' },
@@ -97,23 +97,23 @@ export const CLASSES = {
     role: 'Controle de espaço',
     description: 'Arma longa e postura defensiva. Controla passagens com estocadas e varreduras.',
     attributes: {
-      maxHp: 310, damage: 21, speed: 135, range: 78, attackInterval: 0.9, armor: 32,
+      maxHp: 310, damage: 21, speed: 135, range: 104, attackInterval: 0.9, armor: 32,
       magicPower: 0, critChance: 0.05, critMult: 1.5, ccResist: 0.25, radius: 18,
     },
     attack: { kind: 'melee', arc: 60, damageType: 'physical' },
   },
   engineer: {
     id: 'engineer',
-    weapon: 'Martelo e ferramentas',
+    weapon: 'Bacamarte',
     resource: { name: 'Materiais', color: '#d7a35a', max: 150, regen: 7, start: 90 },
     name: 'Engenheiro',
     role: 'Defesas e reparos',
-    description: 'Martelo pesado e caixa de ferramentas. Ergue barricadas, torres, catapultas e armadilhas, e conserta construções.',
+    description: 'Bacamarte nas mãos e ferramentas no cinto. Atira de média distância, ergue torres que evoluem, barricadas e armadilhas, e conserta construções e muralhas.',
     attributes: {
-      maxHp: 260, damage: 15, speed: 145, range: 46, attackInterval: 0.85, armor: 25,
-      magicPower: 0, critChance: 0.05, critMult: 1.5, ccResist: 0.15, radius: 17, structureDamageMult: 2,
+      maxHp: 250, damage: 16, speed: 145, range: 360, attackInterval: 0.85, armor: 20,
+      magicPower: 0, critChance: 0.08, critMult: 1.6, ccResist: 0.15, radius: 17, structureDamageMult: 1.6,
     },
-    attack: { kind: 'melee', arc: 90, damageType: 'physical' },
+    attack: { kind: 'ranged', damageType: 'physical', projectileSpeed: 900, projectileRadius: 5, visual: 'bullet' },
   },
 };
 

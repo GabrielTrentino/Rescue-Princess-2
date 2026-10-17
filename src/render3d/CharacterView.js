@@ -2,7 +2,7 @@
 // Lê o estado do personagem a cada quadro; nunca o altera.
 import * as THREE from 'three';
 import { toVec3 } from './CameraRig.js';
-import { makeHalberd, makeHammer } from './props.js';
+import { makeHalberd, makeBlunderbuss } from './props.js';
 import { CLASS_LOOKS } from './looks.js';
 
 const TEAM_HEX = { blue: 0x3d7be0, red: 0xde4a3f, neutral: 0xb0a890 };
@@ -60,7 +60,7 @@ export class CharacterView {
     const teamColor = new THREE.Color(TEAM_HEX[c.team]);
     let handR = null;
     model.traverse((o) => {
-      if (o.name === 'handslot.r') handR = o;
+      if (o.name === 'handslotr' || o.name === 'handslot.r') handR = o; // o GLTFLoader tira o ponto do nome
       if (!o.isMesh && !o.isSkinnedMesh) return;
       const accessory = WEAPON_NODES.test(o.name) || /Helmet|Hat|Cape|Head_Hooded/.test(o.name);
       if (accessory) o.visible = look.show.includes(o.name);
@@ -78,8 +78,19 @@ export class CharacterView {
       if (o.name === 'Rogue_Head_Hooded') o.visible = true;
     });
     if (look.extra && handR) {
-      const w = look.extra === 'halberd' ? makeHalberd() : makeHammer();
-      handR.add(w);
+      if (look.extra === 'halberd') handR.add(makeHalberd());
+      else {
+        // Mesma pega da besta do pacote: cano para a frente (+z) a partir da mão.
+        const grip = new THREE.Group();
+        grip.position.set(-0.105, -0.01, 0);
+        grip.rotation.y = Math.PI / 2;
+        const gun = makeBlunderbuss();
+        gun.rotation.x = Math.PI / 2;
+        gun.position.z = -0.2;
+        gun.scale.setScalar(1.4);
+        grip.add(gun);
+        handR.add(grip);
+      }
     }
     this.model = model;
     this.group.add(model);

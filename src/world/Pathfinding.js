@@ -49,14 +49,39 @@ export class NavGrid {
     this.cols = Math.ceil(map.width / cellSize);
     this.rows = Math.ceil(map.height / cellSize);
     this.blocked = new Uint8Array(this.cols * this.rows);
-    for (let row = 0; row < this.rows; row++) {
-      for (let col = 0; col < this.cols; col++) {
-        const { x, y } = this.cellCenter(col, row);
-        const out = x < agentRadius || y < agentRadius || x > map.width - agentRadius || y > map.height - agentRadius;
-        const hit = map.obstacles.some((rect) => circleIntersectsRect(x, y, agentRadius + 2, rect));
-        this.blocked[row * this.cols + col] = out || hit ? 1 : 0;
+    this.refresh(0, 0, this.cols - 1, this.rows - 1);
+  }
+
+  computeCell(col, row) {
+    const { x, y } = this.cellCenter(col, row);
+    const map = this.map;
+    const r = this.agentRadius;
+    const out = x < r || y < r || x > map.width - r || y > map.height - r;
+    const hit = map.obstacles.some((rect) => !rect.disabled && circleIntersectsRect(x, y, r + 2, rect));
+    return out || hit ? 1 : 0;
+  }
+
+  refresh(c0, r0, c1, r1) {
+    for (let row = Math.max(0, r0); row <= Math.min(this.rows - 1, r1); row++) {
+      for (let col = Math.max(0, c0); col <= Math.min(this.cols - 1, c1); col++) {
+        this.blocked[row * this.cols + col] = this.computeCell(col, row);
       }
     }
+  }
+
+  // Recalcula as células em volta de um retângulo (quando um obstáculo aparece ou some).
+  refreshRect(rect) {
+    const pad = this.agentRadius + 4;
+    const a = this.cellOf({ x: rect.x - pad, y: rect.y - pad });
+    const b = this.cellOf({ x: rect.x + rect.w + pad, y: rect.y + rect.h + pad });
+    this.refresh(a.col, a.row, b.col, b.row);
+  }
+
+  // Cópia que usa outro mapa (mesmos obstáculos, objetos próprios) sem recalcular a grade inteira.
+  cloneFor(map) {
+    const copy = Object.create(NavGrid.prototype);
+    Object.assign(copy, this, { map, blocked: this.blocked.slice() });
+    return copy;
   }
 
   cellCenter(col, row) {

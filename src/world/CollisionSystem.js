@@ -1,4 +1,5 @@
 // Colisões em plano 2D: personagens são círculos, obstáculos são retângulos alinhados aos eixos.
+// Obstáculos com `disabled` (ex.: trecho de muralha derrubado) são ignorados.
 // Tudo aqui é independente da renderização (as dimensões visuais dos sprites não interferem).
 import { clamp } from '../core/math.js';
 
@@ -46,7 +47,7 @@ export function resolveStatic(pos, r, map) {
   for (let pass = 0; pass < 3; pass++) {
     let moved = false;
     for (const rect of map.obstacles) {
-      if (pushCircleOutOfRect(pos, r, rect)) moved = true;
+      if (!rect.disabled && pushCircleOutOfRect(pos, r, rect)) moved = true;
     }
     clampToBounds(pos, r, map);
     if (!moved) break;
@@ -102,12 +103,12 @@ export function segmentIntersectsRect(x1, y1, x2, y2, rect, pad = 0) {
 
 export function hasLineOfSight(map, a, b, pad = 0) {
   for (const rect of map.obstacles) {
-    if (segmentIntersectsRect(a.x, a.y, b.x, b.y, rect, pad)) return false;
+    if (!rect.disabled && segmentIntersectsRect(a.x, a.y, b.x, b.y, rect, pad)) return false;
   }
   return true;
 }
 
 export function pointBlocked(map, x, y, r = 0) {
   if (x < r || y < r || x > map.width - r || y > map.height - r) return true;
-  return map.obstacles.some((rect) => circleIntersectsRect(x, y, r, rect));
+  return map.obstacles.some((rect) => !rect.disabled && circleIntersectsRect(x, y, r, rect));
 }

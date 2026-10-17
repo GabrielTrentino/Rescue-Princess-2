@@ -27,7 +27,7 @@ Sem Node, qualquer servidor estático serve, por exemplo `python3 -m http.server
 | Mirar | Mouse |
 | Ataque básico | Clique esquerdo (segurar) ou `J` |
 | Habilidades 1 a 5 | `1` `2` `3` `4` `5` |
-| Pegar arma do chão | `F` |
+| Pegar arma do chão, carregar ou largar a princesa | `F` |
 | Melhorar construção da equipe | `G` (perto dela) |
 | Girar a câmera | `Q` / `E` ou arrastar com o botão do meio |
 | Zoom | Roda do mouse |
@@ -55,12 +55,29 @@ física, então funcionam igual em teclados ABNT2 e US.
 - **Habilidades sem recarga:** cada classe tem uma barra de ação (Estamina, Vigor, Fúria, Mana, Foco,
   Energia, Materiais) que se recupera com o tempo; cada habilidade gasta parte dela. A Fúria do Bárbaro
   cresce batendo e apanhando.
-- **Engenheiro:** ergue barricadas, torres de flechas, catapultas e armadilhas de espinhos, e repara
-  construções e defesas. As defesas não somem com o tempo, mas podem ser destruídas por qualquer inimigo.
-- **Vitória:** derrubar o castelo inimigo ou conquistar a base inimiga (ficar nela com mais atacantes que
-  defensores). Se o tempo acabar, vence quem avançou mais na base adversária, depois quem perdeu menos
-  construções e por fim quem eliminou mais.
-- Quantidade de bots, duração, respawn, tempo de conquista e dificuldade são ajustáveis em **Configurações**
+- **Castelo murado:** cada equipe tem um pátio de pedra cercado por muralhas, com o portão principal voltado
+  para o centro. Dois trechos da muralha são pontos fracos: inimigos podem derrubá-los para abrir passagem
+  e só um Engenheiro da própria equipe consegue reconstruí-los. Dentro do próprio castelo, aldeões correm
+  80% mais rápido. O castelo fica num platô, e o andar de cima, em volta da torre principal, é mais alto.
+- **Torres principais:** duas por equipe, na frente do castelo, com muita vida (3000) e flechas pesadas
+  que causam bastante dano em todos, exceto Guerreiros e Bárbaros, que recebem 30% do dano.
+- **Relevo:** platôs no castelo e no meio do mapa e vales nos caminhos laterais (só visual; a simulação
+  continua plana).
+- **Engenheiro:** atira com um bacamarte; Tiro Duplo dispara duas balas seguidas. A habilidade Torre ergue
+  uma Torre de Flechas; usada mirando uma torre sua, enche a segunda barra (dourada) dela, e reparar uma
+  torre com a vida cheia também enche essa barra. Cheia, a torre evolui: Torre de Flechas → Torre de
+  Canhão → Torre Real. Também ergue barricadas e armadilhas e repara construções e defesas.
+- **Objetivo: resgatar a princesa.** A princesa de cada equipe está presa numa jaula no castelo inimigo.
+  Encoste nela e aperte `F` para carregá-la (`F` de novo larga); leve-a até a praça da sua base para vencer.
+  Quem carrega não ataca e anda mais devagar. Se quem carrega morre, ela cai: um aliado pode pegá-la de
+  volta, mas se um inimigo encostar nela, ou depois de 20 s, ela volta para a jaula.
+- **Coxinhas de frango** aparecem pelo mapa. Leve uma à princesa inimiga presa no seu castelo: a cada 4
+  coxinhas ela sobe um nível de saciedade (até 5), fica mais larga e mais lenta de carregar. O círculo
+  acima da princesa enche no sentido horário a cada coxinha e mostra o nível no meio.
+- **Seringas Jonmaros** aparecem no meio do mapa. Leve uma à sua princesa para ela emagrecer um nível.
+- **Vitória:** levar a sua princesa para casa ou derrubar o castelo inimigo. Se o tempo acabar, vence quem
+  levou a princesa mais perto de casa, depois quem perdeu menos construções e por fim quem eliminou mais.
+- Quantidade de bots, duração, respawn e dificuldade são ajustáveis em **Configurações**
   (salvas no navegador).
 
 ## Classes e habilidades
@@ -74,7 +91,7 @@ física, então funcionam igual em teclados ABNT2 e US.
 | Arqueiro (besta) | Foco (100) | Disparo Preciso (20), Chuva de Flechas (30), Flecha Perfurante (25), Disparo de Recuo (30), Rajada Mortal (75) |
 | Mercenário | Energia (100) | Corte Rápido (20), Passo Sombrio (35), Golpe Oportunista (25), Bomba de Fumaça (40), Execução (80) |
 | Alabardeiro | Vigor (100) | Estocada (20), Varredura (25), Gancho de Alabarda (30), Formação Defensiva (30), Domínio do Campo (80) |
-| Engenheiro | Materiais (150) | Barricada (30), Torre de Flechas (60), Catapulta (90), Armadilha de Espinhos (25), Reparar (30) |
+| Engenheiro (bacamarte) | Materiais (150) | Tiro Duplo (20), Torre (60), Barricada (30), Armadilha de Espinhos (25), Reparar (30) |
 
 Atributos ficam em `src/classes/classDefinitions.js`, habilidades em `src/classes/abilityDefinitions.js` e
 construções e defesas em `src/world/Structures.js`, todos como dados. Balancear é editar números, não código.
@@ -166,8 +183,8 @@ em *Settings → Pages*, escolha a branch `main` e a pasta raiz.
 ## Estado atual e limitações conhecidas
 
 - Os valores numéricos (custos, vida das construções, ouro) ainda precisam de testes de jogo com pessoas.
-- Partidas só entre bots costumam terminar por tempo, com algumas construções destruídas pelo caminho;
-  o jogador costuma decidir a partida.
+- Partidas só entre bots costumam terminar por tempo: os bots disputam coxinhas e seringas e às vezes
+  pegam a princesa, mas raramente a levam até em casa. O jogador costuma decidir a partida.
 - Um único mapa (`Vale das Duas Muralhas`, 4800 × 2800) e um único modo.
 - O carregamento inicial baixa cerca de 9 MB de modelos.
 - Sons gravados, multiplayer e controles por gamepad ficam para etapas futuras.

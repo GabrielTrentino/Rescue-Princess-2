@@ -3,6 +3,8 @@
 import { getClass } from '../classes/classDefinitions.js';
 import { BUILDING_TYPES } from '../world/Structures.js';
 import { nearestDrop } from '../world/Weapons.js';
+import { CARRY_RANGE, PRINCESS_MAX_LEVEL } from '../world/Princess.js';
+import { dist } from '../core/math.js';
 import { TEAM_COLORS, OUTLINE } from '../render/palette.js';
 
 const HEAD = 2.25; // altura (unidades 3D) acima da cabeça dos personagens
@@ -31,6 +33,7 @@ export class Overlay {
     for (const b of world.buildings) this.drawBuildingBar(ctx, b);
     for (const d of world.defenses) this.drawDefenseBar(ctx, d);
     for (const c of world.characters) if (c.alive) this.drawOverhead(ctx, c);
+    this.drawPrincesses(ctx, world);
     this.drawAirEffects(ctx, effects);
     if (showPlayerUi) {
       this.drawPrompt(ctx, match);
@@ -101,7 +104,7 @@ export class Overlay {
   }
 
   drawBuildingBar(ctx, b) {
-    const tall = b.destroyed ? 1.6 : b.kind === 'castle' ? 8.6 : 5.2;
+    const tall = b.destroyed ? 1.6 : b.kind === 'castle' ? 8.6 : b.kind === 'wallGate' ? 2.8 : b.kind === 'tower' ? 7 : 5.2;
     const p = this.rig.project(b.pos.x, b.pos.y, tall);
     if (!this.onScreen(p, 100)) return;
     const name = BUILDING_TYPES[b.kind].name;
@@ -110,15 +113,60 @@ export class Overlay {
       return;
     }
     const col = TEAM_COLORS[b.team] ?? TEAM_COLORS.neutral;
+    if (b.kind === 'wallGate' && b.hp >= b.maxHp) return;
     this.bar(ctx, p.x, p.y, 80, 6, b.hpFraction, col.main);
-    this.label(ctx, `${name} · Nv ${b.level}`, p.x, p.y - 5, '#fff3d1', 12, true);
+    const title = BUILDING_TYPES[b.kind].maxLevel === 1 ? name : `${name} · Nv ${b.level}`;
+    this.label(ctx, title, p.x, p.y - 5, '#fff3d1', 12, true);
   }
 
   drawDefenseBar(ctx, d) {
-    if (d.hp >= d.maxHp) return;
-    const p = this.rig.project(d.pos.x, d.pos.y, d.kind === 'trap' ? 0.6 : d.kind === 'barricade' ? 1.5 : 3.6);
+    const evolving = d.type.evolvesTo && d.evolve > 0;
+    if (d.hp >= d.maxHp && !evolving) return;
+    const p = this.rig.project(d.pos.x, d.pos.y, { trap: 0.6, barricade: 1.5, arrowTower: 2.9, catapult: 2.6, royalTower: 3.4 }[d.kind] ?? 3);
     if (!this.onScreen(p)) return;
     this.bar(ctx, p.x, p.y, 40, 4, d.hpFraction, TEAM_COLORS[d.team].main);
+    // Segunda barra (dourada): ao encher, a torre evolui.
+    if (d.type.evolvesTo) this.bar(ctx, p.x, p.y + 6, 40, 3, d.evolve / d.maxHp, '#ffc93a');
+  }
+
+  // Princesas: círculo de saciedade que enche no sentido horário, com o nível no meio.
+  drawPrincesses(ctx, world) {
+    const objective = world.princess;
+    if (!objective) return;
+    for (const pr of Object.values(objective.princesses)) {
+      const carrier = pr.carrierId ? world.getCharacter(pr.carrierId) : null;
+      const pos = carrier ? carrier.pos : pr.pos;
+      const p = this.rig.project(pos.x, pos.y, carrier ? 4.0 : 2.6);
+      if (!this.onScreen(p)) continue;
+      const r = 15;
+      const cy = p.y - 16;
+      ctx.beginPath();
+      ctx.arc(p.x, cy, r + 3, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(20,18,30,0.8)';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(p.x, cy, r, 0, Math.PI * 2);
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      ctx.stroke();
+      const frac = pr.level >= PRINCESS_MAX_LEVEL ? 1 : pr.satiety;
+      if (frac > 0) {
+        ctx.beginPath();
+        ctx.arc(p.x, cy, r, -Math.PI / 2, -Math.PI / 2 + frac * Math.PI * 2);
+        ctx.strokeStyle = '#ffb347';
+        ctx.lineCap = 'round';
+        ctx.stroke();
+        ctx.lineCap = 'butt';
+      }
+      ctx.font = `bold 14px ${FONT}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#fff3d1';
+      ctx.fillText(String(pr.level), p.x, cy + 1);
+      ctx.textBaseline = 'alphabetic';
+      const col = TEAM_COLORS[pr.team];
+      this.label(ctx, `Princesa ${pr.team === 'blue' ? 'Azul' : 'Vermelha'}`, p.x, cy - r - 8, col.light, 11, true);
+    }
   }
 
   drawAirEffects(ctx, effects) {
@@ -147,13 +195,21 @@ export class Overlay {
     if (!player.alive || player.arming) return;
     const world = match.world;
     const lines = [];
+    const objective = world.princess;
+    if (objective) {
+      const own = objective.princesses[player.team];
+      if (own.carrierId === player.id) lines.push('Leve a princesa para a sua base! (F: largar)');
+      else if (!own.carrierId && dist(player.pos, own.pos) <= CARRY_RANGE) lines.push('F: carregar a princesa');
+      if (player.heldItem === 'coxinha') lines.push('Leve a coxinha à princesa presa no seu castelo');
+      if (player.heldItem === 'syringe') lines.push('Leve a seringa Jonmaros à sua princesa');
+    }
     const drop = nearestDrop(world, player);
     if (drop) {
       const stars = drop.tier > 1 ? ' ' + '★'.repeat(drop.tier - 1) : '';
       lines.push(`F: pegar arma de ${getClass(drop.classId).name}${stars}`);
     }
     const b = world.nearestOwnBuilding(player);
-    if (b) {
+    if (b && BUILDING_TYPES[b.kind].maxLevel !== 1) {
       const cost = b.upgradeCost;
       lines.push(cost === null ? `${BUILDING_TYPES[b.kind].name}: nível máximo` : `G: melhorar ${BUILDING_TYPES[b.kind].name} (${cost} de ouro)`);
     }
@@ -191,12 +247,27 @@ export class Overlay {
       ctx.fillStyle = b.destroyed ? '#6e6858' : (TEAM_COLORS[b.team] ?? TEAM_COLORS.neutral).dark;
       ctx.fillRect(x0 + b.rect.x * s, y0 + b.rect.y * s, b.rect.w * s, b.rect.h * s);
     }
-    for (const base of Object.values(match.objective.status())) {
+    for (const [team, base] of Object.entries(map.bases)) {
       ctx.beginPath();
       ctx.arc(x0 + base.x * s, y0 + base.y * s, base.radius * s, 0, Math.PI * 2);
-      ctx.strokeStyle = TEAM_COLORS[base.team].light;
+      ctx.strokeStyle = TEAM_COLORS[team].light;
       ctx.lineWidth = 2;
       ctx.stroke();
+    }
+    for (const item of world.princess?.items ?? []) {
+      ctx.fillStyle = item.kind === 'coxinha' ? '#ffb347' : '#6af07a';
+      ctx.fillRect(x0 + item.pos.x * s - 1.5, y0 + item.pos.y * s - 1.5, 3, 3);
+    }
+    for (const pr of Object.values(world.princess?.princesses ?? {})) {
+      const carrier = pr.carrierId ? world.getCharacter(pr.carrierId) : null;
+      const pos = carrier ? carrier.pos : pr.pos;
+      ctx.font = `bold 12px ${FONT}`;
+      ctx.textAlign = 'center';
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = OUTLINE;
+      ctx.strokeText('♛', x0 + pos.x * s, y0 + pos.y * s + 4);
+      ctx.fillStyle = TEAM_COLORS[pr.team].light;
+      ctx.fillText('♛', x0 + pos.x * s, y0 + pos.y * s + 4);
     }
     for (const d of world.drops) {
       ctx.fillStyle = '#fff2b0';

@@ -9,7 +9,6 @@ export const MATCH_DEFAULTS = Object.freeze({
   matchDuration: 600,      // segundos
   goldPerSecond: 2,        // ouro que cada equipe ganha por segundo (abates e construções dão mais)
   respawnTime: 6,          // segundos
-  captureTime: 12,         // segundos de presença sem oposição para conquistar uma base
   baseHealPerSecond: 0.05, // fração da vida máxima recuperada por segundo dentro da própria base
   aiDecisionInterval: 0.25,
   difficulty: 'normal',    // 'facil' | 'normal' | 'dificil'

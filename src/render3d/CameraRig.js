@@ -4,8 +4,18 @@ import * as THREE from 'three';
 
 export const S = 1 / 40; // 40 px do jogo = 1 unidade 3D
 
+// Altura do relevo no ponto do jogo (definida pelo renderizador conforme o mapa da partida).
+let terrain = () => 0;
+export function setTerrain(fn) {
+  terrain = fn ?? (() => 0);
+}
+export function groundAt(x, y) {
+  return terrain(x, y);
+}
+
+// Converte um ponto do jogo para a cena; h é a altura acima do chão naquele ponto.
 export function toVec3(x, y, h = 0, out = new THREE.Vector3()) {
-  return out.set(x * S, h, y * S);
+  return out.set(x * S, h + terrain(x, y), y * S);
 }
 
 const PITCH = THREE.MathUtils.degToRad(52);
@@ -86,8 +96,14 @@ export class CameraRig {
   screenToWorld(sx, sy) {
     this.ndc.set((sx / this.viewW) * 2 - 1, -(sy / this.viewH) * 2 + 1);
     this.raycaster.setFromCamera(this.ndc, this.camera);
-    const hit = this.raycaster.ray.intersectPlane(this.ground, this.tmp);
-    if (!hit) return null;
+    // O chão tem relevo: acerta o plano na altura do terreno e refina algumas vezes.
+    this.ground.constant = -terrain(this.target.x / S, this.target.z / S);
+    let hit = null;
+    for (let i = 0; i < 3; i++) {
+      hit = this.raycaster.ray.intersectPlane(this.ground, this.tmp);
+      if (!hit) return null;
+      this.ground.constant = -terrain(hit.x / S, hit.z / S);
+    }
     return { x: hit.x / S, y: hit.z / S };
   }
 

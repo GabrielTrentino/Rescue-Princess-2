@@ -19,6 +19,8 @@ export class HUD {
       ours: root.querySelector('#obj-ours'),
       theirs: root.querySelector('#obj-theirs'),
       oursBar: root.querySelector('.obj-ours'),
+      oursLabel: root.querySelector('#obj-ours-label'),
+      theirsLabel: root.querySelector('#obj-theirs-label'),
       theirsBar: root.querySelector('.obj-theirs'),
       feed: root.querySelector('#hud-feed'),
       banner: root.querySelector('#hud-banner'),
@@ -61,14 +63,30 @@ export class HUD {
         this.feed(text);
       }),
       ev.on('objective', (e) => {
+        if (e.type === 'rescued') this.banner(e.team === player.team ? 'Princesa resgatada!' : 'O inimigo resgatou a princesa dele!');
+      }),
+      ev.on('princess', (e) => {
         const ours = e.team === player.team;
-        if (e.type === 'underAttack') {
-          const msg = ours ? 'Nossa base está sendo invadida!' : 'Estamos conquistando a base inimiga!';
-          this.feed(msg, 'objective');
-          this.banner(msg);
-        } else if (e.type === 'captured') {
-          this.banner(ours ? 'A base azul caiu!' : 'Base vermelha conquistada!');
-        }
+        const who = ours ? 'Nossa princesa' : 'A princesa inimiga';
+        const by = e.byId ? name(e.byId) : '';
+        const msg = {
+          pickedUp: ours ? `${name(e.carrierId)} está carregando a nossa princesa!` : 'O inimigo pegou a princesa dele!',
+          dropped: `${who} caiu no chão!`,
+          returned: `${who} voltou para a prisão`,
+          fed: ours ? '' : `${by} deu uma coxinha à princesa inimiga`,
+          levelUp: `${who} engordou para o nível ${e.level}!`,
+          slimmed: `${by} usou uma seringa Jonmaros: ${ours ? 'nossa princesa' : 'a princesa inimiga'} emagreceu para o nível ${e.level}`,
+        }[e.type];
+        if (msg) this.feed(msg, 'objective');
+        if (e.type === 'pickedUp' && (ours || e.carrierId === player.id)) this.banner(e.carrierId === player.id ? 'Leve a princesa para a sua base!' : 'Escolte a nossa princesa!');
+        if (e.type === 'pickedUp' && !ours) this.banner('O inimigo está levando a princesa dele!');
+      }),
+      ev.on('itemPicked', (e) => {
+        if (e.characterId !== player.id) return;
+        this.banner(e.kind === 'coxinha' ? 'Coxinha! Leve à princesa presa no seu castelo' : 'Seringa Jonmaros! Leve à sua princesa');
+      }),
+      ev.on('defenseEvolved', (e) => {
+        if (e.team === player.team) this.feed(`Torre evoluiu para ${e.name ?? 'um novo tipo'}!`);
       }),
       ev.on('ability', (e) => {
         if (e.casterId !== player.id) return;
@@ -169,14 +187,20 @@ export class HUD {
     const match = this.match;
     if (!match) return;
     const player = match.player;
-    const bases = match.objective.status();
+    const pr = match.objective.status();
+    const enemy = player.team === 'blue' ? 'red' : 'blue';
     this.el.timer.textContent = formatTime(match.timeLeft);
     this.el.timer.classList.toggle('urgent', match.timeLeft <= 30);
     this.el.score.innerHTML = `<span class="blue">${match.teamKills('blue')}</span> × <span class="red">${match.teamKills('red')}</span>`;
-    this.el.ours.style.width = `${bases.red.progress * 100}%`;
-    this.el.theirs.style.width = `${bases.blue.progress * 100}%`;
-    this.el.oursBar.classList.toggle('alert', bases.red.attackers > bases.red.defenders);
-    this.el.theirsBar.classList.toggle('alert', bases.blue.attackers > bases.blue.defenders);
+    const STATE = { captive: 'presa', carried: 'a caminho!', dropped: 'caída', rescued: 'resgatada' };
+    const own = pr[player.team];
+    const foe = pr[enemy];
+    this.el.oursLabel.textContent = `Nossa princesa · Nv ${own.level} · ${STATE[own.state]}`;
+    this.el.theirsLabel.textContent = `Princesa inimiga · Nv ${foe.level} · ${STATE[foe.state]}`;
+    this.el.ours.style.width = `${match.objective.progress(player.team) * 100}%`;
+    this.el.theirs.style.width = `${match.objective.progress(enemy) * 100}%`;
+    this.el.oursBar.classList.toggle('alert', own.state === 'carried');
+    this.el.theirsBar.classList.toggle('alert', foe.state === 'carried');
 
     const hpPct = (player.hp / player.maxHp) * 100;
     this.el.hp.style.width = `${hpPct}%`;

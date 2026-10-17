@@ -26,24 +26,24 @@ test('uma partida só com bots roda até o fim com todas as classes', () => {
   }
 });
 
-test('bots pegam armas, encontram alvos, causam dano e pressionam o inimigo', () => {
+test('bots pegam armas, encontram alvos, causam dano e disputam a princesa', () => {
   const m = new MatchManager({ seed: 7, config: { matchDuration: 240 } }).start();
   let damage = 0;
   let structureDamage = 0;
   let transforms = 0;
-  let maxAttackers = 0;
+  let objectiveActions = 0;
   m.events.on('damage', (e) => {
     damage += e.amount;
     if (e.structure) structureDamage += e.amount;
   });
   m.events.on('transform', () => transforms++);
-  for (let i = 0; i < 240 / DT && m.state === MATCH_STATE.PLAYING; i++) {
-    m.update(DT);
-    for (const b of Object.values(m.objective.bases)) maxAttackers = Math.max(maxAttackers, b.attackers);
-  }
+  m.events.on('princess', () => objectiveActions++);
+  m.events.on('itemPicked', () => objectiveActions++);
+  run(m, 240);
   assert.ok(transforms >= 12, `bots devem pegar armas (${transforms})`);
   assert.ok(damage > 0);
-  assert.ok(structureDamage > 0 || maxAttackers > 0, 'bots devem atacar construções ou a base adversária');
+  assert.ok(structureDamage > 0, 'bots devem atacar construções');
+  assert.ok(objectiveActions > 0, 'bots devem pegar coxinhas, seringas ou a princesa');
 });
 
 test('bots não escolhem personagens mortos como alvo', () => {
@@ -77,38 +77,40 @@ test('bots não ficam presos indefinidamente', () => {
   assert.ok(worst < 4, `um bot ficou parado por ${worst}s querendo andar`);
 });
 
-test('vitória é detectada quando a base inimiga é conquistada', () => {
-  const m = new MatchManager({ playerClassId: 'warrior', seed: 5 }).start();
-  for (const c of m.world.characters) {
-    if (c.team === 'red') {
-      c.controller = null;
-      m.world.killCharacter(c, null);
-      c.respawnTimer = 999;
-    } else {
-      c.controller = null;
-      c.pos.x = m.world.map.bases.red.x;
-      c.pos.y = m.world.map.bases.red.y;
-    }
-  }
-  run(m, 60);
-  assert.equal(m.state, MATCH_STATE.ENDED);
-  assert.equal(m.result.outcome, 'victory');
-  assert.equal(m.result.reason, 'objective');
-});
-
-test('derrota é detectada quando a própria base é conquistada', () => {
-  const m = new MatchManager({ playerClassId: 'warrior', seed: 6 }).start();
+// Prepara um resgate: a equipe `team` pega a própria princesa no castelo inimigo; a outra equipe fica fora de jogo.
+function setupRescue(m, team) {
+  let carrier = null;
   for (const c of m.world.characters) {
     c.controller = null;
-    if (c.team === 'blue') {
+    if (c.team !== team) {
       m.world.killCharacter(c, null);
       c.respawnTimer = 999;
-    } else {
-      c.pos.x = m.world.map.bases.blue.x;
-      c.pos.y = m.world.map.bases.blue.y;
-    }
+    } else if (!carrier) carrier = c;
   }
-  run(m, 60);
+  const p = m.objective.princesses[team];
+  carrier.pos.x = p.pos.x;
+  carrier.pos.y = p.pos.y;
+  assert.equal(m.objective.interact(carrier), true);
+  assert.equal(p.state, 'carried');
+  const home = m.world.map.bases[team];
+  carrier.pos.x = home.x;
+  carrier.pos.y = home.y;
+  return carrier;
+}
+
+test('vitória: levar a própria princesa do castelo inimigo até a base', () => {
+  const m = new MatchManager({ playerClassId: 'warrior', seed: 5 }).start();
+  setupRescue(m, 'blue');
+  run(m, 2);
+  assert.equal(m.state, MATCH_STATE.ENDED);
+  assert.equal(m.result.outcome, 'victory');
+  assert.equal(m.result.reason, 'princess');
+});
+
+test('derrota: o inimigo leva a princesa dele para casa', () => {
+  const m = new MatchManager({ playerClassId: 'warrior', seed: 6 }).start();
+  setupRescue(m, 'red');
+  run(m, 2);
   assert.equal(m.result.outcome, 'defeat');
 });
 
@@ -126,7 +128,8 @@ test('reiniciar não mantém cooldowns, efeitos, tempo nem personagens da partid
   assert.equal(m.player.cooldowns.isReady('warrior_last_stand'), true);
   assert.equal(m.player.effects.list.length, 0);
   assert.equal(m.world.characters.length, 1 + m.config.alliesCount + m.config.enemiesCount);
-  assert.equal(m.objective.bases.blue.progress, 0);
+  assert.equal(m.objective.princesses.blue.state, 'captive');
+  assert.equal(m.objective.princesses.blue.level, 0);
 });
 
 // Lê os nomes das animações direto do bloco JSON de um arquivo .glb.

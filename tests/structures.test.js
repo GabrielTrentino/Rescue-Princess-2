@@ -129,7 +129,7 @@ test('engenheiro ergue defesas: torre atira, armadilha atordoa e barricada bloqu
 
   eng.actionTimer = 0;
   eng.resource = eng.resourceMax;
-  assert.equal(tryUseAbility(world, eng, 0, { x: 300, y: 260 }).ok, true);
+  assert.equal(tryUseAbility(world, eng, 2, { x: 300, y: 260 }).ok, true);
   const wall = world.defenses.find((d) => d.kind === 'barricade');
   const runner = addChar(world, 'mercenary', 'red', wall.pos.x, wall.pos.y - 80);
   runner.intent.move = { x: 0, y: 1 };
@@ -140,7 +140,7 @@ test('engenheiro ergue defesas: torre atira, armadilha atordoa e barricada bloqu
 test('defesas não duram para sempre só por tempo, mas podem ser destruídas', () => {
   const world = makeWorld();
   const eng = addChar(world, 'engineer', 'blue', 300, 300);
-  tryUseAbility(world, eng, 0, { x: 400, y: 300 });
+  tryUseAbility(world, eng, 2, { x: 400, y: 300 });
   step(world, 120);
   assert.equal(world.defenses.length, 1, 'continua de pé com o tempo');
   const enemy = addChar(world, 'barbarian', 'red', world.defenses[0].pos.x + 40, 300);

@@ -7,6 +7,7 @@ import { AI_STATE, StateMachine } from './StateMachine.js';
 import { selectTarget, selectStructureTarget, countEnemiesNear, countAlliesNear } from './TargetSelector.js';
 import { edgeDistance, closestPoint, DEFENSE_TYPES } from '../world/Structures.js';
 import { PICKUP_RANGE } from '../world/Weapons.js';
+import { CARRY_RANGE } from '../world/Princess.js';
 
 export const BOT_ROLE = Object.freeze({ ATTACK: 'attack', DEFEND: 'defend', ESCORT: 'escort' });
 
@@ -84,6 +85,7 @@ export class BotController {
     } else {
       this.dropTarget = null;
     }
+    if (this.decidePrincess(world, bot)) return;
     if (bot.classId === 'engineer' && this.decideEngineer(world, bot)) return;
 
     // Recuar quando muito ferido e sem apoio, até recuperar vida na base.
@@ -143,13 +145,96 @@ export class BotController {
     }
     this.fsm.set(AI_STATE.SEEK);
     // Atacantes derrubam as construções inimigas pelo caminho antes de invadir a base.
-    const siege = this.role === BOT_ROLE.ATTACK && bot.isArmed ? this.pickSiegeTarget(world, bot) : null;
+    const princess = world.princess?.princesses[bot.team];
+    // Perto da princesa, o resgate vem antes de derrubar construções.
+    const nearPrincess = princess && !princess.carrierId && dist(bot.pos, princess.pos) < 800;
+    const siege = this.role === BOT_ROLE.ATTACK && bot.isArmed && !nearPrincess ? this.pickSiegeTarget(world, bot) : null;
     if (siege) {
       this.goal = closestApproach(siege, bot.pos, 50);
+    } else if (princess && !princess.carrierId) {
+      // Vai resgatar a própria princesa no castelo inimigo.
+      if (!this.goal || dist(this.goal, princess.pos) > 60) this.goal = this.jitter(princess.pos, 50);
+      if (dist(bot.pos, princess.pos) <= CARRY_RANGE * 0.8) bot.intent.interact = true;
     } else if (!this.goal || dist(this.goal, enemyBase) > enemyBase.radius) this.goal = this.jitter(enemyBase, enemyBase.radius);
     else if (dist(bot.pos, this.goal) < 30) this.goal = this.jitter(enemyBase, enemyBase.radius);
     // Usa habilidades defensivas mesmo sem alvo definido (ex.: emboscada fora da linha de visão).
     this.decideAbility(world, bot);
+  }
+
+  // ---------- Princesa, coxinhas e seringas ----------
+  decidePrincess(world, bot) {
+    const obj = world.princess;
+    if (!obj) return false;
+    const own = obj.princesses[bot.team];
+    const captive = obj.princesses[otherTeam(bot.team)];
+    // Carregando a princesa: corre para casa sem parar para lutar.
+    if (own.carrierId === bot.id) {
+      this.target = null;
+      this.fsm.set(AI_STATE.SEEK);
+      this.goal = this.ownBase(world, bot);
+      return true;
+    }
+    // Um inimigo está levando a princesa que guardamos: todo mundo por perto vai atrás dele.
+    const thief = captive.carrierId ? world.getCharacter(captive.carrierId) : null;
+    if (thief && thief.alive && dist(bot.pos, thief.pos) < 1600 && bot.hpFraction > 0.25) {
+      this.target = thief;
+      const gap = edgeDistance(thief, bot.pos);
+      this.fsm.set(gap <= bot.attrs.range * 1.05 ? AI_STATE.ATTACK : AI_STATE.CHASE);
+      this.decideAbility(world, bot);
+      return true;
+    }
+    // Princesa largada no chão, ou presa e já bem perto: vai buscá-la sem parar para lutar.
+    const close = own.state === 'captive' && bot.isArmed && bot.hpFraction > 0.3 && dist(bot.pos, own.pos) < 280;
+    if (close || (own.state === 'dropped' && dist(bot.pos, own.pos) < 900)) {
+      this.target = null;
+      this.fsm.set(AI_STATE.SEEK);
+      this.goal = { ...own.pos };
+      if (dist(bot.pos, own.pos) <= CARRY_RANGE * 0.8) bot.intent.interact = true;
+      return true;
+    }
+    // Levando um item: coxinha para a prisioneira do nosso castelo, seringa para a nossa princesa.
+    if (bot.heldItem) {
+      const threat = selectTarget(world, bot, { range: 120, current: this.target });
+      if (threat) return false;
+      const dest = bot.heldItem === 'coxinha' ? captive.pos : own.pos;
+      if (bot.heldItem === 'syringe' && own.level === 0) return false;
+      this.target = null;
+      this.fsm.set(AI_STATE.SEEK);
+      this.goal = { ...dest };
+      return true;
+    }
+    // Aliado carregando a princesa: escoltas e atacantes vão junto.
+    const carrier = own.carrierId ? world.getCharacter(own.carrierId) : null;
+    if (carrier && this.role !== BOT_ROLE.DEFEND) {
+      this.target = selectTarget(world, bot, { range: 260, current: this.target, anchor: carrier.pos, leash: 420 });
+      if (this.target) return false;
+      this.fsm.set(AI_STATE.FOLLOW);
+      if (!this.goal || dist(this.goal, carrier.pos) > 90) this.goal = this.jitter(carrier.pos, 120);
+      return true;
+    }
+    // Nossa princesa está pesada: um ajudante vai buscar uma seringa Jonmaros onde estiver.
+    if (own.level >= 2 && this.role !== BOT_ROLE.ATTACK && bot.id % 3 === 0) {
+      const syringe = obj.items.filter((i) => i.kind === 'syringe').sort((a, b) => dist(a.pos, bot.pos) - dist(b.pos, bot.pos))[0];
+      if (syringe && countEnemiesNear(world, bot, 220) === 0) {
+        this.target = null;
+        this.fsm.set(AI_STATE.SEEK);
+        this.goal = { ...syringe.pos };
+        return true;
+      }
+    }
+    // Item por perto e ninguém ameaçando: vai pegar (bons ajudantes: aldeões, escoltas e defensores).
+    if (this.role !== BOT_ROLE.ATTACK || !bot.isArmed) {
+      const item = obj.items
+        .filter((i) => dist(i.pos, bot.pos) < 650 && (i.kind === 'coxinha' || own.level > 0))
+        .sort((a, b) => dist(a.pos, bot.pos) - dist(b.pos, bot.pos))[0];
+      if (item && countEnemiesNear(world, bot, 260) === 0) {
+        this.target = null;
+        this.fsm.set(AI_STATE.SEEK);
+        this.goal = { ...item.pos };
+        return true;
+      }
+    }
+    return false;
   }
 
   decideAbility(world, bot) {
@@ -176,14 +261,15 @@ export class BotController {
     let bestScore = Infinity;
     for (const b of world.buildings) {
       if (b.destroyed || b.team === bot.team || b.team === 'neutral') continue;
-      const score = dist(b.pos, bot.pos) + (b.kind === 'castle' ? 1500 : 0) + this.rng() * 300;
+      // Torres principais e castelo são duros demais para valer o desvio; muralhas abrem caminho.
+      const score = dist(b.pos, bot.pos) + (b.kind === 'castle' ? 1500 : b.kind === 'tower' ? 900 : 0) + this.rng() * 300;
       if (score < bestScore) {
         bestScore = score;
         best = b;
       }
     }
     // Às vezes ignora as construções e vai direto para a base.
-    this.siege = best && this.rng() < 0.75 ? best : null;
+    this.siege = best && this.rng() < 0.5 ? best : null;
     return this.siege;
   }
 
@@ -278,7 +364,7 @@ export class BotController {
     // 3) Novas defesas na frente da base, até um limite por engenheiro.
     const mine = world.defenses.filter((d) => d.ownerId === bot.id).length;
     if (mine >= 6) return null;
-    const kinds = ['eng_arrow_tower', 'eng_barricade', 'eng_arrow_tower', 'eng_trap', 'eng_catapult'];
+    const kinds = ['eng_tower', 'eng_barricade', 'eng_tower', 'eng_trap', 'eng_tower'];
     const id = kinds[Math.floor(this.rng() * kinds.length)];
     const index = abilities.findIndex((a) => a.id === id);
     const own = this.ownBase(world, bot);
@@ -295,10 +381,16 @@ export class BotController {
   act(world, bot, dt) {
     const intent = bot.intent;
     intent.attack = false;
+    // A mira vale só para este passo: sem alvo, o bot olha para onde está andando.
+    const pendingAim = intent.abilities.length ? intent.aim : null;
+    intent.aim = pendingAim;
     if (bot.arming) {
       intent.move = { x: 0, y: 0 };
       return;
     }
+    // Encostou na própria princesa livre: pega na hora (não espera a próxima decisão).
+    const own = world.princess?.princesses[bot.team];
+    if (own && !own.carrierId && own.state !== 'rescued' && dist(bot.pos, own.pos) <= CARRY_RANGE * 0.9) intent.interact = true;
     let dest = null;
     let desiredMove = null;
     const t = this.target && this.target.alive ? this.target : null;
@@ -306,8 +398,9 @@ export class BotController {
 
     if (t) {
       const point = closestPoint(t, bot.pos);
-      intent.aim = { x: point.x, y: point.y };
       const gap = edgeDistance(t, bot.pos);
+      // Só encara o alvo quando ele está perto; antes disso, olha para o caminho.
+      if (!pendingAim && gap <= Math.max(bot.attrs.range * 1.4, 160)) intent.aim = { x: point.x, y: point.y };
       const range = bot.attrs.range;
       const ranged = bot.classDef.attack.kind === 'ranged';
       // Construções bloqueiam a própria linha de visão; contra elas basta a distância.
@@ -324,11 +417,9 @@ export class BotController {
       }
     } else if (this.goal) {
       if (dist(bot.pos, this.goal) > 24) dest = this.goal;
-      if (this.fsm.state !== AI_STATE.RETREAT && !dest) intent.aim = null;
     }
 
     if (dest) desiredMove = this.steerTo(world, bot, dest, dt);
-    if (desiredMove && !intent.aim) intent.aim = { x: bot.pos.x + desiredMove.x * 50, y: bot.pos.y + desiredMove.y * 50 };
     intent.move = this.applyUnstuck(bot, desiredMove ?? { x: 0, y: 0 }, dt);
   }
 
