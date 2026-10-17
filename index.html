@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Resgate da Princesa</title>
+  <link rel="stylesheet" href="styles/main.css" />
+  <link rel="stylesheet" href="styles/menu.css" />
+  <link rel="stylesheet" href="styles/hud.css" />
+</head>
+<body>
+  <div id="app">
+    <div id="stage">
+      <canvas id="game" width="1280" height="720" aria-label="Arena do jogo"></canvas>
+
+      <!-- HUD da partida -->
+      <div id="hud" class="hidden" aria-live="polite">
+        <div class="hud-top">
+          <div class="obj-bar obj-ours" title="Progresso da sua equipe na conquista da base vermelha">
+            <span class="obj-label">Conquista da base vermelha</span>
+            <div class="bar"><div class="fill" id="obj-ours"></div></div>
+          </div>
+          <div class="hud-center">
+            <div id="hud-timer">5:00</div>
+            <div id="hud-score"><span class="blue">0</span> × <span class="red">0</span></div>
+          </div>
+          <div class="obj-bar obj-theirs" title="Progresso inimigo na conquista da sua base">
+            <span class="obj-label">Ameaça à base azul</span>
+            <div class="bar"><div class="fill" id="obj-theirs"></div></div>
+          </div>
+        </div>
+        <div id="hud-feed"></div>
+        <div id="hud-banner" class="hidden"></div>
+        <div id="hud-respawn" class="hidden"></div>
+        <div class="hud-bottom">
+          <div class="player-panel">
+            <div id="hud-class">Guerreiro</div>
+            <div class="hp-bar"><div class="fill" id="hud-hp"></div><span id="hud-hp-text">0 / 0</span></div>
+            <div id="hud-kd">Eliminações 0 · Mortes 0</div>
+          </div>
+          <div id="hud-abilities"></div>
+        </div>
+        <div class="hud-hint">Esc pausa · Backspace reinicia</div>
+      </div>
+
+      <!-- Menu inicial -->
+      <section id="screen-menu" class="screen">
+        <div class="panel menu-panel">
+          <h1>Resgate da Princesa</h1>
+          <p class="tagline">Ação em equipes · seis classes · conquiste a base inimiga</p>
+          <div class="menu-buttons">
+            <button data-action="play" class="primary">Iniciar partida</button>
+            <button data-action="classes">Selecionar classe</button>
+            <button data-action="settings">Configurações</button>
+            <button data-action="credits">Créditos</button>
+          </div>
+          <p class="menu-foot">Classe atual: <strong id="menu-class">Guerreiro</strong></p>
+        </div>
+      </section>
+
+      <!-- Seleção de classe -->
+      <section id="screen-classes" class="screen hidden">
+        <div class="panel wide">
+          <h2>Escolha sua classe</h2>
+          <div id="class-grid"></div>
+          <div id="class-detail"></div>
+          <div class="row-buttons">
+            <button data-action="back">Voltar</button>
+            <button data-action="play" class="primary">Jogar com esta classe</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Configurações -->
+      <section id="screen-settings" class="screen hidden">
+        <div class="panel">
+          <h2>Configurações</h2>
+          <form id="settings-form" class="settings">
+            <label>Aliados (bots) <input type="number" name="alliesCount" min="0" max="6" /></label>
+            <label>Inimigos (bots) <input type="number" name="enemiesCount" min="1" max="7" /></label>
+            <label>Duração da partida (min) <input type="number" name="matchMinutes" min="1" max="20" /></label>
+            <label>Tempo de respawn (s) <input type="number" name="respawnTime" min="1" max="30" /></label>
+            <label>Tempo de conquista (s) <input type="number" name="captureTime" min="3" max="60" /></label>
+            <label>Dificuldade
+              <select name="difficulty">
+                <option value="facil">Fácil</option>
+                <option value="normal">Normal</option>
+                <option value="dificil">Difícil</option>
+              </select>
+            </label>
+            <label class="check"><input type="checkbox" name="showDamageNumbers" /> Mostrar números de dano</label>
+            <label class="check"><input type="checkbox" name="sound" /> Efeitos sonoros</label>
+          </form>
+          <div class="row-buttons">
+            <button data-action="reset-settings">Restaurar padrão</button>
+            <button data-action="back" class="primary">Salvar e voltar</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Créditos -->
+      <section id="screen-credits" class="screen hidden">
+        <div class="panel">
+          <h2>Créditos</h2>
+          <p>Projeto original de jogo de ação em equipes, inspirado nas mecânicas de <em>Fat Princess</em> como referência de design.</p>
+          <p>Código, arte provisória e efeitos sonoros gerados pelo próprio projeto. Nenhum asset de terceiros é usado nesta versão. A origem de recursos externos futuros será registrada em <code>ASSET_CREDITS.md</code>.</p>
+          <div class="row-buttons"><button data-action="back" class="primary">Voltar</button></div>
+        </div>
+      </section>
+
+      <!-- Pausa -->
+      <section id="screen-pause" class="screen hidden">
+        <div class="panel">
+          <h2>Pausado</h2>
+          <div class="menu-buttons">
+            <button data-action="resume" class="primary">Continuar</button>
+            <button data-action="restart">Reiniciar partida</button>
+            <button data-action="menu">Menu principal</button>
+          </div>
+          <div class="controls-help">
+            <h3>Controles</h3>
+            <ul>
+              <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> ou setas: mover</li>
+              <li>Mouse: mirar · Clique esquerdo ou <kbd>J</kbd>: ataque básico</li>
+              <li><kbd>Q</kbd> <kbd>E</kbd> <kbd>R</kbd> <kbd>F</kbd> <kbd>Espaço</kbd>: habilidades 1 a 5</li>
+              <li><kbd>Esc</kbd> ou <kbd>P</kbd>: pausa · <kbd>Backspace</kbd>: reiniciar</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- Resultado -->
+      <section id="screen-results" class="screen hidden">
+        <div class="panel">
+          <h2 id="result-title">Vitória!</h2>
+          <p id="result-reason"></p>
+          <table id="result-table"></table>
+          <div class="menu-buttons">
+            <button data-action="restart" class="primary">Jogar novamente</button>
+            <button data-action="classes">Trocar de classe</button>
+            <button data-action="menu">Menu principal</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+  <noscript>Este jogo precisa de JavaScript habilitado.</noscript>
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>

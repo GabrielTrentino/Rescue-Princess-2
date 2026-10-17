@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "notes": "Objetos de cenário renderizados por tools/art/props.py com a mesma câmera dos personagens. scale = 48 px do jogo por unidade do Blender.",
+  "defaults": {
+    "originX": 128,
+    "originY": 212
+  },
+  "props": {
+    "tree_a": {
+      "src": "assets/environment/objects/tree_a.png",
+      "scale": 0.6375
+    },
+    "tree_b": {
+      "src": "assets/environment/objects/tree_b.png",
+      "scale": 0.6375
+    },
+    "crate": {
+      "src": "assets/environment/objects/crate.png",
+      "scale": 0.3
+    },
+    "barrel": {
+      "src": "assets/environment/objects/barrel.png",
+      "scale": 0.3
+    },
+    "rock_a": {
+      "src": "assets/environment/objects/rock_a.png",
+      "scale": 0.4125
+    },
+    "rock_b": {
+      "src": "assets/environment/objects/rock_b.png",
+      "scale": 0.4125
+    },
+    "rock_c": {
+      "src": "assets/environment/objects/rock_c.png",
+      "scale": 0.4125
+    },
+    "banner_blue": {
+      "src": "assets/environment/objects/banner_blue.png",
+      "scale": 0.5625
+    },
+    "banner_red": {
+      "src": "assets/environment/objects/banner_red.png",
+      "scale": 0.5625
+    }
+  }
+}
