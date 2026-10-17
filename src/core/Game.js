@@ -6,10 +6,12 @@ import { InputManager, DEFAULT_BINDINGS } from './InputManager.js';
 import { MatchManager, MATCH_STATE } from '../systems/MatchManager.js';
 import { loadSettings, saveSettings, defaultSettings } from '../systems/Settings.js';
 import { PlayerController } from '../entities/PlayerController.js';
-import { Camera } from '../render/Camera.js';
-import { Renderer } from '../render/Renderer.js';
 import { Effects } from '../render/Effects.js';
-import { SpriteManager } from '../render/SpriteManager.js';
+import { Assets } from '../render3d/Assets.js';
+import { CameraRig } from '../render3d/CameraRig.js';
+import { Renderer3D } from '../render3d/Renderer3D.js';
+import { Overlay } from '../render3d/Overlay.js';
+import { renderPortraits } from '../render3d/Portraits.js';
 import { HUD } from '../ui/HUD.js';
 import { Screens } from '../ui/Screens.js';
 import { Sfx } from '../audio/Sfx.js';
@@ -34,13 +36,15 @@ export class Game {
     this.canvas = root.querySelector('#game');
     this.settings = loadSettings();
     this.bindings = DEFAULT_BINDINGS;
+    this.overlayCanvas = root.querySelector('#overlay');
     this.input = new InputManager(window, this.canvas, this.bindings, { width: VIEW_W, height: VIEW_H });
-    this.camera = new Camera(VIEW_W, VIEW_H);
-    this.sprites = new SpriteManager();
-    this.renderer = new Renderer(this.canvas, this.camera, this.sprites);
+    this.rig = new CameraRig(VIEW_W, VIEW_H);
+    this.assets = new Assets();
+    this.renderer = new Renderer3D(this.canvas, this.rig, this.assets);
+    this.overlay = new Overlay(this.overlayCanvas, this.rig);
     this.sfx = new Sfx();
     this.hud = new HUD(root.querySelector('#hud'), this.bindings);
-    this.screens = new Screens(root, { onAction: (a) => this.onAction(a), bindings: this.bindings, sprites: this.sprites });
+    this.screens = new Screens(root, { onAction: (a) => this.onAction(a), bindings: this.bindings });
     this.scene = null;
     this.match = null;
     this.effects = null;
@@ -56,23 +60,25 @@ export class Game {
     window.addEventListener('keydown', () => this.sfx.unlock(), { once: false });
   }
 
-  // Ajusta a resolução real do canvas à tela (nitidez em telas grandes e de alta densidade).
+  // Ajusta a resolução real dos canvas à tela (nitidez em telas grandes e de alta densidade).
   resize() {
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const cssWidth = this.canvas.clientWidth || VIEW_W;
-    const scale = Math.max(0.5, (cssWidth * dpr) / VIEW_W);
-    this.canvas.width = Math.round(VIEW_W * scale);
-    this.canvas.height = Math.round(VIEW_H * scale);
-    this.renderer.pixelScale = this.canvas.width / VIEW_W;
+    const cssHeight = this.canvas.clientHeight || VIEW_H;
+    this.renderer.setSize(cssWidth, cssHeight, dpr);
+    const w = Math.round(cssWidth * dpr);
+    const h = Math.round(cssHeight * dpr);
+    this.overlay.resize(w, h, w / VIEW_W);
   }
 
   async start() {
-    this.sprites.onChange(() => this.screens.refreshPreviews());
-    this.sprites.load('assets/manifests/characters.json', 'assets/manifests/environment.json');
-    this.screens.buildClassSelection(this.settings.playerClassId, (id) => this.selectClass(id));
-    this.screens.setMenuClass(this.settings.playerClassId);
-    this.startDemo();
+    this.screens.buildClassSelection('villager', (id) => this.screens.selectClass(id));
     this.setScene(SCENE.MENU);
+    const fill = this.root.querySelector('#loading-fill');
+    await this.assets.load((k) => (fill.style.width = `${Math.round(k * 100)}%`));
+    this.root.querySelector('#loading').classList.add('hidden');
+    renderPortraits(this.assets, this.screens.portraitTargets());
+    this.startDemo();
     this.loop.start();
   }
 
@@ -86,24 +92,27 @@ export class Game {
     this.effects?.dispose();
     const events = new EventBus();
     const config = demo
-      ? { ...this.settings, matchDuration: 9999, alliesCount: 4, enemiesCount: 5 }
+      ? { ...this.settings, matchDuration: 9999 }
       : { ...this.settings };
     this.match = new MatchManager({
-      playerClassId: demo ? 'warrior' : this.settings.playerClassId,
       config,
       events,
-      createPlayerController: demo ? () => null : () => new PlayerController(this.input, this.camera),
+      createPlayerController: demo ? () => null : () => new PlayerController(this.input, this.rig),
     }).start();
     this.demo = demo;
     this.effects = new Effects(events, {
       getCharacter: (id) => this.match.world.getCharacter(id),
-      onShake: (v) => !demo && this.camera.addShake(v),
+      onShake: (v) => !demo && this.rig.addShake(v),
       settings: this.settings,
     });
+    events.on('ability', (e) => {
+      const c = this.match.world.getCharacter(e.casterId);
+      const idx = c ? c.classDef.abilities.findIndex((a) => a.id === e.abilityId) : -1;
+      if (idx >= 0) this.renderer.onAbility(e.casterId, idx);
+    });
     const p = this.match.player;
-    this.camera.x = p.pos.x;
-    this.camera.y = p.pos.y;
-    this.camera.follow(p.pos, this.match.world.map, 0, true);
+    if (!demo) this.rig.yaw = this.rig.yawGoal = -Math.PI / 4;
+    this.rig.follow(p.pos, 0, true);
     if (!demo) {
       this.hookSounds(events);
       this.hud.attach(this.match);
@@ -125,7 +134,10 @@ export class Game {
     this.sfx.enabled = this.settings.sound;
     events.on('attack', (e) => isPlayer(e.attackerId) && this.sfx.swing());
     events.on('ability', (e) => isPlayer(e.casterId) && this.sfx.ability());
-    events.on('abilityFailed', (e) => isPlayer(e.casterId) && e.reason === 'em recarga' && this.sfx.denied());
+    events.on('abilityFailed', (e) => isPlayer(e.casterId) && e.reason === 'sem recurso' && this.sfx.denied());
+    events.on('upgradeFailed', (e) => isPlayer(e.characterId) && this.sfx.denied());
+    events.on('transform', (e) => isPlayer(e.characterId) && this.sfx.ability());
+    events.on('buildingDestroyed', () => this.sfx.alert());
     events.on('damage', (e) => {
       if (isPlayer(e.targetId)) this.sfx.hurt();
       else if (isPlayer(e.sourceId)) this.sfx.hit();
@@ -148,13 +160,6 @@ export class Game {
     this.input.enabled = scene === SCENE.PLAYING;
     this.input.releaseAll();
     this.canvas.style.cursor = scene === SCENE.PLAYING ? 'none' : 'default';
-  }
-
-  selectClass(id) {
-    this.settings.playerClassId = id;
-    saveSettings(this.settings);
-    this.screens.selectClass(id);
-    this.screens.setMenuClass(id);
   }
 
   play() {
@@ -182,7 +187,7 @@ export class Game {
         this.setScene(SCENE.SETTINGS);
         break;
       case 'reset-settings':
-        this.screens.fillSettings({ ...defaultSettings(), playerClassId: this.settings.playerClassId });
+        this.screens.fillSettings(defaultSettings());
         break;
       case 'credits':
         this.setScene(SCENE.CREDITS);
@@ -221,6 +226,8 @@ export class Game {
         this.play();
         return;
       }
+      if (this.input.wasPressed('rotateLeft')) this.rig.rotate(-Math.PI / 4);
+      if (this.input.wasPressed('rotateRight')) this.rig.rotate(Math.PI / 4);
       this.match.update(dt);
       this.input.consumePressed();
     } else if (this.demo) {
@@ -242,19 +249,25 @@ export class Game {
     const running = this.scene === SCENE.PLAYING || this.demo;
     const dt = running ? elapsed : 0;
     const player = this.match.player;
-    // A câmera da demonstração passeia entre os personagens.
+    // A câmera da demonstração passeia entre os personagens e gira devagar.
     let focus = player.pos;
     if (this.demo) {
       const alive = this.match.world.characters.filter((c) => c.alive);
       const idx = Math.floor(this.match.elapsed / 8) % Math.max(1, alive.length);
       focus = alive[idx]?.pos ?? player.pos;
+      this.rig.rotate(dt * 0.08);
+    } else if (this.scene === SCENE.PLAYING) {
+      const cam = this.input.takeCameraInput();
+      if (cam.dragX) this.rig.rotate(cam.dragX * 0.01);
+      if (cam.wheel) this.rig.zoom(-cam.wheel * 2.5);
     }
-    this.camera.follow(focus, this.match.world.map, dt);
+    this.rig.follow(focus, dt);
     this.effects.update(dt);
     const aim = this.scene === SCENE.PLAYING && this.input.mouse.inside && player.alive
-      ? this.camera.toWorld(this.input.mouse.x, this.input.mouse.y)
+      ? this.rig.screenToWorld(this.input.mouse.x, this.input.mouse.y)
       : null;
-    this.renderer.render(this.match, this.effects, { aim, dt, settings: this.settings });
+    this.renderer.render(this.match, this.effects, dt, this.demo ? null : player.pos);
+    this.overlay.render(this.match, this.effects, { aim, showPlayerUi: !this.demo && this.scene !== SCENE.RESULTS });
     if (!this.demo && this.scene !== SCENE.RESULTS) this.hud.update();
     if (this.match.state === MATCH_STATE.ENDED && this.demo) this.startDemo();
   }

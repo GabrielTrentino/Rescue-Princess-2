@@ -2,6 +2,7 @@
 export const TEAM_COLORS = {
   blue: { main: '#3d7be0', light: '#8fb8ff', dark: '#1f4a99' },
   red: { main: '#de4a3f', light: '#ff9a8f', dark: '#922a22' },
+  neutral: { main: '#b0a890', light: '#e0d8c0', dark: '#6e6858' },
 };
 
 export const OUTLINE = '#1c1a2b';
@@ -14,6 +15,8 @@ export const CLASS_LOOK = {
   archer: { accent: '#4f9a45', trim: '#9ad36e', label: 'A' },
   mercenary: { accent: '#3b3a4a', trim: '#8e7cc3', label: 'Me' },
   halberdier: { accent: '#d4a531', trim: '#f2d27a', label: 'Al' },
+  villager: { accent: '#c8b48a', trim: '#e8d8b0', label: 'Ad' },
+  engineer: { accent: '#d08a2a', trim: '#f2c46e', label: 'En' },
 };
 
 export const FX_COLORS = {
@@ -30,4 +33,9 @@ export const FX_COLORS = {
   arrows: '#ffd28a',
   whirl: '#ffe3b0',
   impact: '#ffffff',
+  stone: '#cfc6b4',
+  boulder: '#c9a27a',
+  spikes: '#d9dde4',
+  build: '#ffd27a',
+  repair: '#7dff9a',
 };

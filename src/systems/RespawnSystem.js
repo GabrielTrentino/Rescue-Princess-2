@@ -1,5 +1,6 @@
 // Pontos de surgimento ao redor da base de cada equipe e reaparecimento após a morte.
 import { pointBlocked } from '../world/CollisionSystem.js';
+import { becomeVillager } from '../world/Weapons.js';
 
 export function spawnPoint(map, team, index, radius = 20) {
   const base = map.bases[team];
@@ -21,6 +22,8 @@ export function updateRespawns(world, dt) {
     c.respawnTimer -= dt;
     if (c.respawnTimer > 0) continue;
     const p = spawnPoint(world.map, c.team, i + Math.floor(world.time), c.radius);
+    // Renasce sem arma: a arma ficou no chão onde caiu.
+    becomeVillager(c);
     c.resetForSpawn(p.x, p.y);
     c.controller?.onRespawn?.();
     world.events.emit('respawn', { id: c.id, x: p.x, y: p.y });

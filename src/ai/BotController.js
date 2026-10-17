@@ -4,13 +4,18 @@ import { dist, normalize, angleTo } from '../core/math.js';
 import { hasLineOfSight } from '../world/CollisionSystem.js';
 import { otherTeam } from '../config.js';
 import { AI_STATE, StateMachine } from './StateMachine.js';
-import { selectTarget, countEnemiesNear, countAlliesNear } from './TargetSelector.js';
+import { selectTarget, selectStructureTarget, countEnemiesNear, countAlliesNear } from './TargetSelector.js';
+import { edgeDistance, closestPoint, DEFENSE_TYPES } from '../world/Structures.js';
+import { PICKUP_RANGE } from '../world/Weapons.js';
 
 export const BOT_ROLE = Object.freeze({ ATTACK: 'attack', DEFEND: 'defend', ESCORT: 'escort' });
 
 export class BotController {
-  constructor({ role = BOT_ROLE.ATTACK, decisionInterval = 0.25, abilityChance = 0.6, rng = Math.random, leaderId = null }) {
+  constructor({ role = BOT_ROLE.ATTACK, decisionInterval = 0.25, abilityChance = 0.6, rng = Math.random, leaderId = null, preferredClass = null }) {
     this.role = role;
+    this.preferredClass = preferredClass;
+    this.dropTarget = null;
+    this.buildPlan = null;
     this.decisionInterval = decisionInterval;
     this.abilityChance = abilityChance;
     this.rng = rng;
@@ -36,6 +41,9 @@ export class BotController {
     this.target = null;
     this.path = null;
     this.goal = null;
+    this.dropTarget = null;
+    this.buildPlan = null;
+    this.siege = null;
   }
 
   onRespawn() {
@@ -68,6 +76,15 @@ export class BotController {
   decide(world, bot) {
     const own = this.ownBase(world, bot);
     const enemyBase = this.enemyBase(world, bot);
+    if (bot.arming) return;
+
+    // Sem arma: a prioridade é pegar uma (de preferência a da sua classe favorita).
+    if (!bot.isArmed) {
+      if (this.decideArming(world, bot)) return;
+    } else {
+      this.dropTarget = null;
+    }
+    if (bot.classId === 'engineer' && this.decideEngineer(world, bot)) return;
 
     // Recuar quando muito ferido e sem apoio, até recuperar vida na base.
     if (this.fsm.state === AI_STATE.RETREAT) {
@@ -95,9 +112,14 @@ export class BotController {
       leash: defending ? 520 : Infinity,
     });
 
+    // Sem inimigos por perto: atacantes e escoltas derrubam construções e defesas inimigas no caminho.
+    if (!this.target && this.role !== BOT_ROLE.DEFEND && bot.isArmed) {
+      this.target = selectStructureTarget(world, bot, { range: pushing ? 200 : this.role === BOT_ROLE.ATTACK ? 380 : 300, current: this.target });
+    }
+
     if (this.target) {
-      const reach = bot.attrs.range + this.target.radius;
-      this.fsm.set(dist(bot.pos, this.target.pos) <= reach * 1.05 ? AI_STATE.ATTACK : AI_STATE.CHASE);
+      const gap = edgeDistance(this.target, bot.pos);
+      this.fsm.set(gap <= bot.attrs.range * 1.05 ? AI_STATE.ATTACK : AI_STATE.CHASE);
       this.decideAbility(world, bot);
       return;
     }
@@ -120,7 +142,11 @@ export class BotController {
       return;
     }
     this.fsm.set(AI_STATE.SEEK);
-    if (!this.goal || dist(this.goal, enemyBase) > enemyBase.radius) this.goal = this.jitter(enemyBase, enemyBase.radius);
+    // Atacantes derrubam as construções inimigas pelo caminho antes de invadir a base.
+    const siege = this.role === BOT_ROLE.ATTACK && bot.isArmed ? this.pickSiegeTarget(world, bot) : null;
+    if (siege) {
+      this.goal = closestApproach(siege, bot.pos, 50);
+    } else if (!this.goal || dist(this.goal, enemyBase) > enemyBase.radius) this.goal = this.jitter(enemyBase, enemyBase.radius);
     else if (dist(bot.pos, this.goal) < 30) this.goal = this.jitter(enemyBase, enemyBase.radius);
     // Usa habilidades defensivas mesmo sem alvo definido (ex.: emboscada fora da linha de visão).
     this.decideAbility(world, bot);
@@ -130,38 +156,170 @@ export class BotController {
     if (!bot.canAct || this.rng() > this.abilityChance) return;
     const abilities = bot.classDef.abilities;
     const order = abilities.map((_, i) => i).sort(() => this.rng() - 0.5);
+    // Guarda um pouco da barra para emergências, exceto quando ela está quase cheia.
+    const reserve = bot.resource > bot.resourceMax * 0.8 ? 0 : bot.resourceMax * 0.15;
     for (const i of order) {
       const a = abilities[i];
-      if (!bot.cooldowns.isReady(a.id)) continue;
+      if (bot.resource < a.cost + (a.ai?.when === 'lowHp' ? 0 : reserve)) continue;
+      if (this.target?.isStructure && a.ai?.when !== 'targetInRange') continue;
       if (!abilityConditionMet(world, bot, this.target, a.ai)) continue;
       bot.intent.abilities.push(i);
-      if (this.target) bot.intent.aim = { x: this.target.pos.x, y: this.target.pos.y };
+      if (this.target) bot.intent.aim = { ...closestPoint(this.target, bot.pos) };
       return;
     }
+  }
+
+  // Construção inimiga a derrubar: a mais próxima, deixando o castelo por último.
+  pickSiegeTarget(world, bot) {
+    if (this.siege && !this.siege.destroyed && this.siege.team !== bot.team) return this.siege;
+    let best = null;
+    let bestScore = Infinity;
+    for (const b of world.buildings) {
+      if (b.destroyed || b.team === bot.team || b.team === 'neutral') continue;
+      const score = dist(b.pos, bot.pos) + (b.kind === 'castle' ? 1500 : 0) + this.rng() * 300;
+      if (score < bestScore) {
+        bestScore = score;
+        best = b;
+      }
+    }
+    // Às vezes ignora as construções e vai direto para a base.
+    this.siege = best && this.rng() < 0.75 ? best : null;
+    return this.siege;
+  }
+
+  // ---------- Aldeão: escolher e pegar uma arma ----------
+  decideArming(world, bot) {
+    // Ameaçado de perto e sem arma: revida com socos (ou foge se estiver muito ferido).
+    const threat = selectTarget(world, bot, { range: 90, current: this.target });
+    if (threat && bot.hpFraction > 0.35) {
+      this.target = threat;
+      this.fsm.set(AI_STATE.ATTACK);
+      this.decideAbility(world, bot);
+      return true;
+    }
+    let best = null;
+    let bestScore = Infinity;
+    for (const d of world.drops) {
+      if (d.claimedBy && d.claimedBy !== bot.id) continue;
+      const rack = d.buildingId ? world.buildings.find((b) => b.id === d.buildingId) : null;
+      // Suportes inimigos são arriscados: só valem a pena se estiverem bem perto.
+      const enemyRack = rack && rack.team !== bot.team;
+      const dd = dist(bot.pos, d.pos);
+      if (enemyRack && dd > 450) continue;
+      let score = dd + (d.classId === this.preferredClass ? 0 : 500) - (d.tier - 1) * 150;
+      // Evita que vários aliados corram para a mesma arma.
+      if (world.characters.some((c) => c !== bot && c.alive && c.team === bot.team && c.controller?.dropTarget === d.id)) score += 900;
+      if (score < bestScore) {
+        bestScore = score;
+        best = d;
+      }
+    }
+    this.target = null;
+    if (!best) {
+      this.dropTarget = null;
+      // Esperou demais sem arma: vai à luta assim mesmo (pedradas e socos).
+      if (this.fsm.state === AI_STATE.ARM && this.fsm.timeInState > 12) return false;
+      // Nada disponível: espera perto da construção da sua classe preferida.
+      const home = world.buildings.find((b) => b.team === bot.team && b.classId === this.preferredClass && !b.destroyed) ??
+        world.buildings.find((b) => b.team === bot.team && b.classId && !b.destroyed);
+      if (!home) return false;
+      this.fsm.set(AI_STATE.ARM);
+      if (!this.goal || dist(this.goal, home.rack) > 80) this.goal = this.jitter(home.rack, 80);
+      return true;
+    }
+    this.dropTarget = best.id;
+    this.fsm.set(AI_STATE.ARM);
+    this.goal = { x: best.pos.x, y: best.pos.y };
+    if (dist(bot.pos, best.pos) <= PICKUP_RANGE * 0.8) bot.intent.interact = true;
+    return true;
+  }
+
+  // ---------- Engenheiro: consertar, reconstruir e erguer defesas ----------
+  decideEngineer(world, bot) {
+    if (countEnemiesNear(world, bot, 260) > 0) {
+      this.buildPlan = null;
+      // Sob ataque: uma armadilha ou barricada rápida entre ele e o inimigo.
+      return false;
+    }
+    if (!this.buildPlan) this.buildPlan = this.planEngineerWork(world, bot);
+    const plan = this.buildPlan;
+    if (!plan) return false;
+    const ability = bot.classDef.abilities[plan.index];
+    if (bot.resource < ability.cost) {
+      // Espera juntar materiais perto do local, protegendo-o.
+      this.fsm.set(AI_STATE.BUILD);
+      this.goal = plan.stand;
+      if (bot.resource < ability.cost && this.fsm.timeInState > 12) this.buildPlan = null;
+      return true;
+    }
+    this.fsm.set(AI_STATE.BUILD);
+    this.goal = plan.stand;
+    if (dist(bot.pos, plan.stand) <= plan.reach) {
+      bot.intent.abilities.push(plan.index);
+      bot.intent.aim = { ...plan.at };
+      this.buildPlan = null;
+    }
+    return true;
+  }
+
+  planEngineerWork(world, bot) {
+    const abilities = bot.classDef.abilities;
+    const repairIdx = abilities.findIndex((a) => a.id === 'eng_repair');
+    // 1) Ruínas próximas (inclusive as neutras do meio do mapa) viram construções da equipe.
+    const ruin = world.buildings
+      .filter((b) => b.destroyed && dist(b.pos, bot.pos) < 1400)
+      .sort((a, b) => dist(a.pos, bot.pos) - dist(b.pos, bot.pos))[0];
+    if (ruin && this.rng() < 0.6) return { index: repairIdx, at: ruin.pos, stand: closestApproach(ruin, bot.pos, 60), reach: 80 };
+    // 2) Construções aliadas danificadas.
+    const hurt = world.buildings
+      .filter((b) => !b.destroyed && b.team === bot.team && b.hpFraction < 0.8)
+      .sort((a, b) => a.hpFraction - b.hpFraction)[0];
+    if (hurt) return { index: repairIdx, at: hurt.pos, stand: closestApproach(hurt, bot.pos, 60), reach: 80 };
+    // 3) Novas defesas na frente da base, até um limite por engenheiro.
+    const mine = world.defenses.filter((d) => d.ownerId === bot.id).length;
+    if (mine >= 6) return null;
+    const kinds = ['eng_arrow_tower', 'eng_barricade', 'eng_arrow_tower', 'eng_trap', 'eng_catapult'];
+    const id = kinds[Math.floor(this.rng() * kinds.length)];
+    const index = abilities.findIndex((a) => a.id === id);
+    const own = this.ownBase(world, bot);
+    const towardCenter = Math.sign(world.map.width / 2 - own.x);
+    const anchor = world.buildings.filter((b) => b.team === bot.team && !b.destroyed && b.classId);
+    const near = anchor[Math.floor(this.rng() * anchor.length)] ?? own;
+    const at = this.jitter({ x: near.pos ? near.pos.x + towardCenter * 230 : own.x + towardCenter * 320, y: near.pos ? near.pos.y : own.y }, 160);
+    at.x = Math.min(world.map.width - 60, Math.max(60, at.x));
+    at.y = Math.min(world.map.height - 60, Math.max(60, at.y));
+    const r = DEFENSE_TYPES[abilities[index].effects[0].structure].radius;
+    return { index, at, stand: { x: at.x - towardCenter * 70, y: at.y }, reach: 90 + r };
   }
 
   act(world, bot, dt) {
     const intent = bot.intent;
     intent.attack = false;
+    if (bot.arming) {
+      intent.move = { x: 0, y: 0 };
+      return;
+    }
     let dest = null;
     let desiredMove = null;
     const t = this.target && this.target.alive ? this.target : null;
     if (!t && (this.fsm.state === AI_STATE.ATTACK || this.fsm.state === AI_STATE.CHASE)) this.fsm.set(AI_STATE.IDLE);
 
     if (t) {
-      intent.aim = { x: t.pos.x, y: t.pos.y };
-      const d = dist(bot.pos, t.pos);
-      const reach = bot.attrs.range + t.radius;
+      const point = closestPoint(t, bot.pos);
+      intent.aim = { x: point.x, y: point.y };
+      const gap = edgeDistance(t, bot.pos);
+      const range = bot.attrs.range;
       const ranged = bot.classDef.attack.kind === 'ranged';
-      const los = hasLineOfSight(world.map, bot.pos, t.pos);
-      if (d <= reach * 0.97 && los) intent.attack = true;
+      // Construções bloqueiam a própria linha de visão; contra elas basta a distância.
+      const los = t.rect ? true : hasLineOfSight(world.map, bot.pos, t.pos);
+      if (gap <= range * 0.97 && los) intent.attack = true;
       if (ranged) {
-        if (!los || d > reach * 0.8) dest = t.pos;
-        else if (d < reach * 0.35) desiredMove = normalize(bot.pos.x - t.pos.x, bot.pos.y - t.pos.y);
-        else desiredMove = this.strafe(bot, t, dt, 0.6);
-      } else if (d > bot.radius + t.radius + bot.attrs.range * 0.45 || !los) {
-        dest = t.pos;
-      } else {
+        if (!los || gap > range * 0.8) dest = t.rect ? closestApproach(t, bot.pos, range * 0.6) : t.pos;
+        else if (gap < range * 0.3 && !t.isStructure) desiredMove = normalize(bot.pos.x - t.pos.x, bot.pos.y - t.pos.y);
+        else if (!t.isStructure) desiredMove = this.strafe(bot, t, dt, 0.6);
+      } else if (gap > bot.radius + range * 0.45 || !los) {
+        dest = t.rect ? closestApproach(t, bot.pos, bot.radius + 4) : t.pos;
+      } else if (!t.isStructure) {
         desiredMove = this.strafe(bot, t, dt, 0.25);
       }
     } else if (this.goal) {
@@ -225,13 +383,25 @@ export class BotController {
   }
 }
 
+// Ponto de onde chegar a uma construção retangular (fora dela, a `pad` da borda).
+function closestApproach(target, from, pad) {
+  const p = closestPoint(target, from);
+  if (!target.rect) return p;
+  const dx = from.x - p.x;
+  const dy = from.y - p.y;
+  const len = Math.hypot(dx, dy);
+  if (len > 1e-6) return { x: p.x + (dx / len) * pad, y: p.y + (dy / len) * pad };
+  return { x: target.rect.x - pad, y: p.y };
+}
+
 export function abilityConditionMet(world, bot, target, ai) {
   if (!ai) return false;
   const d = target ? dist(bot.pos, target.pos) : Infinity;
-  const los = !ai.los || (target && hasLineOfSight(world.map, bot.pos, target.pos));
+  const gap = target ? edgeDistance(target, bot.pos) : Infinity;
+  const los = !ai.los || (target && (target.rect || hasLineOfSight(world.map, bot.pos, target.pos)));
   switch (ai.when) {
     case 'targetInRange':
-      return !!target && d - target.radius <= ai.range && los;
+      return !!target && gap <= ai.range && los;
     case 'targetBetween':
       return !!target && d >= ai.min && d <= ai.max && los;
     case 'enemiesNear':
@@ -241,7 +411,7 @@ export function abilityConditionMet(world, bot, target, ai) {
     case 'lowHp':
       return bot.hpFraction <= ai.hp && countEnemiesNear(world, bot, ai.radius) >= 1;
     case 'targetLowHp':
-      return !!target && target.hpFraction <= ai.hp && d - target.radius <= ai.range;
+      return !!target && !target.isStructure && target.hpFraction <= ai.hp && gap <= ai.range;
     default:
       return false;
   }

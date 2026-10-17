@@ -7,33 +7,19 @@ import { BotController } from '../src/ai/BotController.js';
 import { selectTarget } from '../src/ai/TargetSelector.js';
 import { makeWorld, addChar, aimAt, step, noCrit } from './helpers.js';
 
-// Cooldowns registrados no handoff (seção 5).
-const HANDOFF_COOLDOWNS = {
-  warrior: [6, 10, 14, 16, 50],
-  barbarian: [14, 10, 12, 18, 45],
-  mage: [5, 14, 8, 12, 45],
-  archer: [5, 12, 9, 14, 40],
-  mercenary: [7, 16, 10, 18, 45],
-  halberdier: [5, 9, 14, 12, 45],
-};
-
-test('seis classes, cada uma com cinco habilidades e identificadores únicos', () => {
-  assert.equal(CLASS_ORDER.length, 6);
+test('sete classes de arma mais o aldeão, cada classe com cinco habilidades e identificadores únicos', () => {
+  assert.equal(CLASS_ORDER.length, 7);
   for (const id of CLASS_ORDER) assert.equal(CLASSES[id].abilities.length, 5, id);
-  assert.equal(Object.keys(ABILITIES).length, 30);
+  assert.equal(CLASSES.villager.abilities.length, 2);
+  assert.equal(Object.keys(ABILITIES).length, 37);
 });
 
-test('cooldowns seguem a tabela do handoff', () => {
-  for (const id of CLASS_ORDER) {
-    assert.deepEqual(CLASSES[id].abilities.map((a) => a.cooldown), HANDOFF_COOLDOWNS[id], id);
-  }
-});
-
-test('todas as 30 habilidades executam, causam efeito e entram em recarga', () => {
-  for (const classId of CLASS_ORDER) {
+test('todas as habilidades executam, causam efeito e gastam a barra de ação', () => {
+  for (const classId of ['villager', ...CLASS_ORDER]) {
     CLASSES[classId].abilities.forEach((def, i) => {
       const world = makeWorld({ width: 1400, height: 800 });
       const caster = addChar(world, classId, 'blue', 500, 400);
+      caster.resource = caster.resourceMax;
       const enemy = addChar(world, 'warrior', 'red', 500 + caster.radius + 30, 400);
       const enemy2 = addChar(world, 'mage', 'red', 500 + caster.radius + 34, 440);
       const ally = addChar(world, 'warrior', 'blue', 470, 430);
@@ -44,12 +30,23 @@ test('todas as 30 habilidades executam, causam efeito e entram em recarga', () =
       world.events.on('fx', () => events++);
       aimAt(caster, enemy.pos.x, enemy.pos.y);
       const hpBefore = enemy.hp + enemy2.hp;
-      const r = tryUseAbility(world, caster, i, { ...enemy.pos });
-      assert.equal(r.ok, true, `${def.id} deveria ativar`);
-      assert.ok(!caster.cooldowns.isReady(def.id), `${def.id} deveria entrar em recarga`);
+      const resBefore = caster.resource;
+      // Engenheiro: constrói longe dos personagens; o reparo precisa de algo danificado por perto.
+      let aim = { ...enemy.pos };
+      if (def.effects[0].type === 'build') aim = { x: 500, y: 250 };
+      if (def.effects[0].type === 'repair') {
+        tryUseAbility(world, caster, 1, { x: 500, y: 320 });
+        caster.actionTimer = 0;
+        caster.resource = caster.resourceMax;
+        world.defenses[0].hp = 10;
+        events++;
+      }
+      const r = tryUseAbility(world, caster, i, aim);
+      assert.equal(r.ok, true, `${def.id} deveria ativar (${r.reason})`);
+      assert.ok(caster.resource < (def.effects[0].type === 'repair' ? caster.resourceMax : resBefore), `${def.id} deveria gastar recurso`);
       step(world, 1.5);
       const changed = enemy.hp + enemy2.hp < hpBefore || caster.effects.list.length > 0 || ally.effects.list.length > 0 ||
-        enemy.taunt !== null || world.zones.length > 0 || events > 0;
+        enemy.taunt !== null || world.zones.length > 0 || world.defenses.length > 0 || events > 0;
       assert.ok(changed, `${def.id} deveria produzir algum efeito`);
       void ally;
     });

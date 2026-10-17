@@ -7,6 +7,8 @@ export const AI_STATE = Object.freeze({
   ATTACK: 'attack',
   RETREAT: 'retreat',
   DEFEND: 'defend',
+  ARM: 'arm',         // aldeão indo pegar uma arma
+  BUILD: 'build',     // engenheiro construindo ou consertando
   DEAD: 'dead',
 });
 

@@ -7,11 +7,16 @@
   <link rel="stylesheet" href="styles/main.css" />
   <link rel="stylesheet" href="styles/menu.css" />
   <link rel="stylesheet" href="styles/hud.css" />
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }
+  </script>
 </head>
 <body>
   <div id="app">
     <div id="stage">
       <canvas id="game" width="1280" height="720" aria-label="Arena do jogo"></canvas>
+      <canvas id="overlay" width="1280" height="720" aria-hidden="true"></canvas>
+      <div id="loading"><div class="panel"><p>Carregando modelos 3D…</p><div class="bar"><div class="fill" id="loading-fill"></div></div></div></div>
 
       <!-- HUD da partida -->
       <div id="hud" class="hidden" aria-live="polite">
@@ -36,37 +41,40 @@
           <div class="player-panel">
             <div id="hud-class">Guerreiro</div>
             <div class="hp-bar"><div class="fill" id="hud-hp"></div><span id="hud-hp-text">0 / 0</span></div>
+            <div class="res-bar"><div class="fill" id="hud-res"></div><span id="hud-res-text"></span></div>
             <div id="hud-kd">Eliminações 0 · Mortes 0</div>
+            <div id="hud-gold">Ouro da equipe: 0</div>
           </div>
           <div id="hud-abilities"></div>
         </div>
-        <div class="hud-hint">Esc pausa · Backspace reinicia</div>
+        <div class="hud-hint">1–5 habilidades · F pegar arma · G melhorar · Q/E girar câmera · Esc pausa</div>
       </div>
 
       <!-- Menu inicial -->
       <section id="screen-menu" class="screen">
         <div class="panel menu-panel">
           <h1>Resgate da Princesa</h1>
-          <p class="tagline">Ação em equipes · seis classes · conquiste a base inimiga</p>
+          <p class="tagline">Ação em equipes 8 contra 8 · comece como aldeão, pegue uma arma e destrua o castelo inimigo</p>
           <div class="menu-buttons">
             <button data-action="play" class="primary">Iniciar partida</button>
-            <button data-action="classes">Selecionar classe</button>
+            <button data-action="classes">Classes e armas</button>
             <button data-action="settings">Configurações</button>
             <button data-action="credits">Créditos</button>
           </div>
-          <p class="menu-foot">Classe atual: <strong id="menu-class">Guerreiro</strong></p>
+          <p class="menu-foot">Todos começam como <strong>Aldeão</strong>. Cada arma no chão vira uma classe.</p>
         </div>
       </section>
 
       <!-- Seleção de classe -->
       <section id="screen-classes" class="screen hidden">
         <div class="panel wide">
-          <h2>Escolha sua classe</h2>
+          <h2>Classes e armas</h2>
+          <p class="classes-intro">Cada construção fabrica a arma de uma classe. Pegue a arma no suporte (<kbd>F</kbd>) para se transformar. Quem cai deixa a arma no chão para qualquer um pegar. Melhore as construções (<kbd>G</kbd>) para fabricar armas de nível maior.</p>
           <div id="class-grid"></div>
           <div id="class-detail"></div>
           <div class="row-buttons">
             <button data-action="back">Voltar</button>
-            <button data-action="play" class="primary">Jogar com esta classe</button>
+            <button data-action="play" class="primary">Jogar</button>
           </div>
         </div>
       </section>
@@ -76,8 +84,8 @@
         <div class="panel">
           <h2>Configurações</h2>
           <form id="settings-form" class="settings">
-            <label>Aliados (bots) <input type="number" name="alliesCount" min="0" max="6" /></label>
-            <label>Inimigos (bots) <input type="number" name="enemiesCount" min="1" max="7" /></label>
+            <label>Aliados (bots) <input type="number" name="alliesCount" min="0" max="7" /></label>
+            <label>Inimigos (bots) <input type="number" name="enemiesCount" min="1" max="8" /></label>
             <label>Duração da partida (min) <input type="number" name="matchMinutes" min="1" max="20" /></label>
             <label>Tempo de respawn (s) <input type="number" name="respawnTime" min="1" max="30" /></label>
             <label>Tempo de conquista (s) <input type="number" name="captureTime" min="3" max="60" /></label>
@@ -103,7 +111,8 @@
         <div class="panel">
           <h2>Créditos</h2>
           <p>Projeto original de jogo de ação em equipes, inspirado nas mecânicas de <em>Fat Princess</em> como referência de design.</p>
-          <p>Código, arte provisória e efeitos sonoros gerados pelo próprio projeto. Nenhum asset de terceiros é usado nesta versão. A origem de recursos externos futuros será registrada em <code>ASSET_CREDITS.md</code>.</p>
+          <p>Personagens, animações, construções e cenário 3D: <strong>KayKit</strong> (Adventurers e Medieval Hexagon Pack) por Kay Lousberg, licença CC0. Motor 3D: Three.js (MIT).</p>
+          <p>Código, ícones, alabarda, martelo, barricada, armadilha e efeitos sonoros feitos pelo próprio projeto. A origem de cada recurso está em <code>ASSET_CREDITS.md</code>.</p>
           <div class="row-buttons"><button data-action="back" class="primary">Voltar</button></div>
         </div>
       </section>
@@ -122,7 +131,9 @@
             <ul>
               <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> ou setas: mover</li>
               <li>Mouse: mirar · Clique esquerdo ou <kbd>J</kbd>: ataque básico</li>
-              <li><kbd>Q</kbd> <kbd>E</kbd> <kbd>R</kbd> <kbd>F</kbd> <kbd>Espaço</kbd>: habilidades 1 a 5</li>
+              <li><kbd>1</kbd> a <kbd>5</kbd>: habilidades (gastam a barra de ação, sem recarga)</li>
+              <li><kbd>F</kbd>: pegar arma · <kbd>G</kbd>: melhorar construção (ouro da equipe)</li>
+              <li><kbd>Q</kbd> <kbd>E</kbd> ou botão do meio: girar câmera · roda do mouse: zoom</li>
               <li><kbd>Esc</kbd> ou <kbd>P</kbd>: pausa · <kbd>Backspace</kbd>: reiniciar</li>
             </ul>
           </div>

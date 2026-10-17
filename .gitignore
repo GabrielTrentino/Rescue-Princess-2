@@ -4,3 +4,6 @@ node_modules/
 # Arquivos-fonte pesados de arte ficam fora do Git até definirmos Git LFS
 assets/source/**/*.blend1
 __pycache__/
+
+# Downloads originais dos pacotes KayKit (os modelos já otimizados ficam em assets/models)
+assets/vendor/

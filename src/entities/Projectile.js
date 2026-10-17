@@ -15,6 +15,13 @@ export class Projectile {
     this.alive = true;
   }
 
+  hitsCircle(c, x, y) {
+    const dx = c.pos.x - x;
+    const dy = c.pos.y - y;
+    const rr = c.radius + this.radius;
+    return dx * dx + dy * dy <= rr * rr;
+  }
+
   // Avança em subpassos para não atravessar alvos nem paredes em alta velocidade.
   update(world, dt, onHit) {
     const total = this.speed * dt;
@@ -25,18 +32,19 @@ export class Projectile {
       this.pos.y += this.dir.y * step;
       this.traveled += step;
       const { x, y } = this.pos;
-      if (x < 0 || y < 0 || x > world.map.width || y > world.map.height ||
-          world.map.obstacles.some((r) => circleIntersectsRect(x, y, this.radius * 0.5, r))) {
+      const wall = (x < 0 || y < 0 || x > world.map.width || y > world.map.height)
+        ? true : world.map.obstacles.find((r) => circleIntersectsRect(x, y, this.radius * 0.5, r));
+      if (wall) {
+        // Construções inimigas recebem o golpe; o resto do cenário só bloqueia.
+        const building = wall.buildingKey !== undefined ? world.buildings[wall.buildingKey] : null;
+        if (building && !building.destroyed && building.team !== this.team && building.team !== 'neutral') onHit(this, building);
+        else world.events.emit('fx', { kind: 'impact', x, y, visual: this.visual });
         this.alive = false;
-        world.events.emit('fx', { kind: 'impact', x, y, visual: this.visual });
         return;
       }
       for (const c of world.characters) {
         if (!c.alive || c.team === this.team || this.hitIds.has(c.id)) continue;
-        const dx = c.pos.x - x;
-        const dy = c.pos.y - y;
-        const rr = c.radius + this.radius;
-        if (dx * dx + dy * dy <= rr * rr) {
+        if (this.hitsCircle(c, x, y)) {
           this.hitIds.add(c.id);
           onHit(this, c);
           if (this.hitIds.size > this.pierce) {
@@ -44,6 +52,12 @@ export class Projectile {
             return;
           }
         }
+      }
+      for (const d of world.defenses) {
+        if (!d.alive || d.team === this.team || d.kind === 'trap' || !this.hitsCircle(d, x, y)) continue;
+        onHit(this, d);
+        this.alive = false;
+        return;
       }
       if (this.traveled >= this.range) this.alive = false;
     }

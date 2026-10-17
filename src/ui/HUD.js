@@ -1,5 +1,6 @@
 // Interface da partida (DOM). Apenas exibe o estado; não decide regras.
 import { keyLabel } from '../core/InputManager.js';
+import { BUILDING_TYPES } from '../world/Structures.js';
 
 const ABILITY_ACTIONS = ['ability1', 'ability2', 'ability3', 'ability4', 'ability5'];
 
@@ -26,6 +27,9 @@ export class HUD {
       hp: root.querySelector('#hud-hp'),
       hpText: root.querySelector('#hud-hp-text'),
       kd: root.querySelector('#hud-kd'),
+      res: root.querySelector('#hud-res'),
+      resText: root.querySelector('#hud-res-text'),
+      gold: root.querySelector('#hud-gold'),
       abilities: root.querySelector('#hud-abilities'),
     };
     this.slots = [];
@@ -41,12 +45,15 @@ export class HUD {
     this.match = match;
     const player = match.player;
     this.el.feed.innerHTML = '';
-    this.el.cls.textContent = `${player.classDef.name} · ${player.classDef.role}`;
     this.buildSlots(player);
     const ev = match.events;
     const name = (id) => {
       const c = match.world.getCharacter(id);
-      return c ? `<span class="${c.team}">${c.name} (${c.classDef.name})</span>` : '?';
+      if (c) return `<span class="${c.team}">${c.name} (${c.classDef.name})</span>`;
+      // Defesas e construções também derrotam personagens.
+      const s = match.world.getEntity(id);
+      const label = s?.type?.name;
+      return label ? `<span class="${s.team}">${label}</span>` : 'Uma defesa';
     };
     this.unsubs.push(
       ev.on('death', (e) => {
@@ -67,6 +74,32 @@ export class HUD {
         if (e.casterId !== player.id) return;
         const idx = player.classDef.abilities.findIndex((a) => a.id === e.abilityId);
         this.flashSlot(idx, 'used');
+      }),
+      ev.on('transform', (e) => {
+        const c = match.world.getCharacter(e.characterId);
+        if (!c) return;
+        if (c.id === player.id) this.banner(`Você virou ${c.classDef.name}!`);
+        else if (c.team === player.team && e.from === 'villager') this.feed(`${name(c.id)} pegou uma arma`);
+      }),
+      ev.on('buildingDestroyed', (e) => {
+        const b = match.world.buildings.find((x) => x.id === e.buildingId);
+        const label = b ? BUILDING_TYPES[b.kind].name : 'Construção';
+        const ours = e.team === player.team;
+        this.feed(`${ours ? 'Construção perdida' : 'Construção inimiga destruída'}: ${label}`, 'objective');
+        if (ours && b?.kind === 'castle') this.banner('Nosso castelo caiu!');
+      }),
+      ev.on('buildingUpgraded', (e) => {
+        if (e.team !== player.team) return;
+        const b = match.world.buildings.find((x) => x.id === e.buildingId);
+        if (b) this.feed(`${BUILDING_TYPES[b.kind].name} melhorada para o nível ${e.level}`);
+      }),
+      ev.on('buildingRebuilt', (e) => {
+        if (e.team !== player.team) return;
+        const b = match.world.buildings.find((x) => x.id === e.buildingId);
+        if (b) this.feed(`${BUILDING_TYPES[b.kind].name} reconstruída`);
+      }),
+      ev.on('upgradeFailed', (e) => {
+        if (e.characterId === player.id) this.banner(`Não deu para melhorar: ${e.reason}`);
       }),
       ev.on('abilityFailed', (e) => {
         if (e.casterId !== player.id || !e.abilityId || e.reason === 'ocupado') return;
@@ -94,11 +127,16 @@ export class HUD {
     player.classDef.abilities.forEach((a, i) => {
       const slot = document.createElement('div');
       slot.className = 'ability-slot';
-      slot.title = `${a.name} (${a.cooldown} s)\n${a.description}`;
-      slot.innerHTML = `<span class="key">${keyLabel(this.bindings[ABILITY_ACTIONS[i]][0])}</span><img class="icon" src="${abilityIcon(a)}" alt="${a.icon}"><div class="cd-overlay"></div><div class="cd-text"></div>`;
+      slot.title = `${a.name} (${a.cost} de ${player.classDef.resource.name})\n${a.description}`;
+      slot.innerHTML = `<span class="key">${keyLabel(this.bindings[ABILITY_ACTIONS[i]][0])}</span><img class="icon" src="${abilityIcon(a)}" alt="${a.icon}"><span class="cost">${a.cost}</span>`;
       box.appendChild(slot);
-      this.slots.push({ el: slot, def: a, overlay: slot.querySelector('.cd-overlay'), text: slot.querySelector('.cd-text'), ready: null });
+      this.slots.push({ el: slot, def: a, ready: null });
     });
+    this.slotsClass = player.classId;
+    const res = player.classDef.resource;
+    this.el.cls.textContent = `${player.classDef.name}${player.tier > 1 ? ' ' + '★'.repeat(player.tier - 1) : ''} · ${player.classDef.role}`;
+    this.el.res.style.background = res.color;
+    this.slotsTier = player.tier;
   }
 
   flashSlot(idx, cls) {
@@ -153,12 +191,14 @@ export class HUD {
       this.el.respawn.classList.add('hidden');
     }
 
+    if (this.slotsClass !== player.classId || this.slotsTier !== player.tier) this.buildSlots(player);
+    const res = player.classDef.resource;
+    this.el.res.style.width = `${(player.resource / player.resourceMax) * 100}%`;
+    this.el.resText.textContent = `${res.name} ${Math.floor(player.resource)} / ${player.resourceMax}`;
+    this.el.gold.textContent = `Ouro da equipe: ${Math.floor(match.world.gold[player.team])}`;
     this.basicSlot.querySelector('.cd-overlay').style.setProperty('--cd', player.cooldowns.fraction('basic'));
     for (const slot of this.slots) {
-      const remaining = player.cooldowns.remaining(slot.def.id);
-      const ready = remaining <= 0;
-      slot.overlay.style.setProperty('--cd', player.cooldowns.fraction(slot.def.id));
-      slot.text.textContent = ready ? '' : remaining >= 1 ? Math.ceil(remaining) : remaining.toFixed(1);
+      const ready = player.resource >= slot.def.cost;
       if (slot.ready !== ready) {
         slot.el.classList.toggle('ready', ready);
         slot.ready = ready;

@@ -2,9 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { MatchManager, MATCH_STATE } from '../src/systems/MatchManager.js';
-import { CLASSES, CLASS_ORDER } from '../src/classes/classDefinitions.js';
+import { CLASSES, CLASS_ORDER, ALL_CLASSES } from '../src/classes/classDefinitions.js';
 import { selectTarget } from '../src/ai/TargetSelector.js';
-import { validateManifest, manifestFiles } from '../src/render/SpriteManager.js';
+import { CHARACTER_MODELS, WEAPON_MODELS, WORLD_MODELS } from '../src/render3d/modelList.js';
+import { CLASS_LOOKS } from '../src/render3d/looks.js';
 import { dist } from '../src/core/math.js';
 
 const DT = 1 / 60;
@@ -25,17 +26,24 @@ test('uma partida só com bots roda até o fim com todas as classes', () => {
   }
 });
 
-test('bots encontram alvos, causam dano e participam do objetivo', () => {
-  const m = new MatchManager({ playerClassId: 'warrior', seed: 7, config: { matchDuration: 120 } }).start();
+test('bots pegam armas, encontram alvos, causam dano e pressionam o inimigo', () => {
+  const m = new MatchManager({ seed: 7, config: { matchDuration: 240 } }).start();
   let damage = 0;
-  let maxProgress = 0;
-  m.events.on('damage', (e) => (damage += e.amount));
-  for (let i = 0; i < 120 / DT && m.state === MATCH_STATE.PLAYING; i++) {
+  let structureDamage = 0;
+  let transforms = 0;
+  let maxAttackers = 0;
+  m.events.on('damage', (e) => {
+    damage += e.amount;
+    if (e.structure) structureDamage += e.amount;
+  });
+  m.events.on('transform', () => transforms++);
+  for (let i = 0; i < 240 / DT && m.state === MATCH_STATE.PLAYING; i++) {
     m.update(DT);
-    for (const b of Object.values(m.objective.bases)) maxProgress = Math.max(maxProgress, b.attackers);
+    for (const b of Object.values(m.objective.bases)) maxAttackers = Math.max(maxAttackers, b.attackers);
   }
+  assert.ok(transforms >= 12, `bots devem pegar armas (${transforms})`);
   assert.ok(damage > 0);
-  assert.ok(maxProgress > 0, 'algum bot deve entrar na base adversária');
+  assert.ok(structureDamage > 0 || maxAttackers > 0, 'bots devem atacar construções ou a base adversária');
 });
 
 test('bots não escolhem personagens mortos como alvo', () => {
@@ -121,32 +129,37 @@ test('reiniciar não mantém cooldowns, efeitos, tempo nem personagens da partid
   assert.equal(m.objective.bases.blue.progress, 0);
 });
 
-test('o manifesto de sprites é válido e aponta para arquivos existentes quando pronto', () => {
-  const manifest = JSON.parse(readFileSync(new URL('../assets/manifests/characters.json', import.meta.url)));
-  assert.deepEqual(validateManifest(manifest), []);
-  assert.deepEqual(Object.keys(manifest.characters).sort(), [...CLASS_ORDER].sort());
-  for (const entry of Object.values(manifest.characters)) {
-    if (entry.status !== 'ready') continue;
-    assert.deepEqual(Object.keys(entry.animations).sort(), ['attack', 'death', 'hurt', 'idle', 'run']);
-  }
-  for (const file of manifestFiles(manifest)) {
-    assert.ok(existsSync(new URL(`../${file}`, import.meta.url)), `${file} não existe`);
-  }
+// Lê os nomes das animações direto do bloco JSON de um arquivo .glb.
+function glbJson(url) {
+  const buf = readFileSync(url);
+  const len = buf.readUInt32LE(12);
+  return JSON.parse(buf.subarray(20, 20 + len).toString('utf8'));
+}
+
+test('todos os modelos 3D usados pelo jogo existem', () => {
+  const files = [
+    ...CHARACTER_MODELS.map((n) => `characters/${n}.glb`),
+    ...WEAPON_MODELS.map((n) => `weapons/${n}.glb`),
+    ...WORLD_MODELS.map((n) => `world/${n}.glb`),
+    'characters/anims.glb',
+  ];
+  for (const f of files) assert.ok(existsSync(new URL(`../assets/models/${f}`, import.meta.url)), `${f} não existe`);
 });
 
-test('o manifesto de cenário aponta para objetos existentes', () => {
-  const manifest = JSON.parse(readFileSync(new URL('../assets/manifests/environment.json', import.meta.url)));
-  assert.deepEqual(validateManifest(manifest), []);
-  for (const name of ['tree_a', 'tree_b', 'crate', 'barrel', 'rock_a', 'banner_blue', 'banner_red']) {
-    assert.ok(manifest.props[name], `objeto ${name} ausente`);
-  }
-  for (const file of manifestFiles(manifest)) {
-    assert.ok(existsSync(new URL(`../${file}`, import.meta.url)), `${file} não existe`);
+test('cada classe tem aparência 3D e as animações dela existem', () => {
+  const clips = new Set(glbJson(new URL('../assets/models/characters/anims.glb', import.meta.url)).animations.map((a) => a.name));
+  for (const id of ALL_CLASSES) {
+    const look = CLASS_LOOKS[id];
+    assert.ok(look, `sem aparência para ${id}`);
+    assert.ok(CHARACTER_MODELS.includes(look.model));
+    for (const name of [look.idle, look.run, ...look.attack, ...look.ability, 'PickUp', 'Death_A', 'Hit_A']) {
+      assert.ok(clips.has(name), `animação ${name} (${id}) ausente`);
+    }
   }
 });
 
 test('todas as habilidades têm um ícone desenhado', () => {
-  for (const id of CLASS_ORDER) {
+  for (const id of ALL_CLASSES) {
     for (const a of CLASSES[id].abilities) {
       assert.ok(existsSync(new URL(`../assets/ui/icons/${a.id}.svg`, import.meta.url)), `ícone de ${a.id} ausente`);
     }

@@ -1,6 +1,7 @@
 // Escolha de alvos para bots: respeita provocação, fumaça, linha de visão e prioriza alvos próximos e feridos.
 import { dist } from '../core/math.js';
 import { hasLineOfSight } from '../world/CollisionSystem.js';
+import { edgeDistance } from '../world/Structures.js';
 
 // Um personagem dentro de uma fumaça da própria equipe não pode ser mirado por bots (exceto muito de perto).
 export function isHiddenFrom(world, target, observer) {
@@ -50,4 +51,28 @@ export function countAlliesNear(world, bot, radius) {
     if (c !== bot && c.alive && c.team === bot.team && dist(c.pos, bot.pos) <= radius) n++;
   }
   return n;
+}
+
+// Construção ou defesa inimiga mais próxima dentro do alcance (alvo quando não há personagens).
+export function selectStructureTarget(world, bot, { range, current = null }) {
+  if (current && current.isStructure && current.alive && edgeDistance(current, bot.pos) <= range * 1.3) return current;
+  let best = null;
+  let bestD = range;
+  for (const b of world.buildings) {
+    if (b.destroyed || b.team === bot.team || b.team === 'neutral') continue;
+    const d = edgeDistance(b, bot.pos) + (b.kind === 'castle' ? -150 : 0);
+    if (d < bestD) {
+      bestD = d;
+      best = b;
+    }
+  }
+  for (const s of world.defenses) {
+    if (!s.alive || s.team === bot.team || s.kind === 'trap') continue;
+    const d = edgeDistance(s, bot.pos) - 80; // defesas atrapalham mais: prioridade maior
+    if (d < bestD) {
+      bestD = d;
+      best = s;
+    }
+  }
+  return best;
 }

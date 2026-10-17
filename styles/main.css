@@ -46,6 +46,16 @@ html, body {
   image-rendering: auto;
 }
 
+#overlay {
+  position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;
+}
+#loading {
+  position: absolute; inset: 0; display: grid; place-items: center; background: rgba(24, 38, 26, 0.85); z-index: 20;
+}
+#loading .bar { width: 18em; height: 0.9em; border: 2px solid var(--ink); border-radius: 8px; background: #2d3b2a; overflow: hidden; }
+#loading .fill { height: 100%; width: 0; background: linear-gradient(#ffe27a, #e8b84a); }
+.classes-intro { max-width: 60em; margin: 0 auto 0.8em; }
+
 .hidden { display: none !important; }
 
 button {
