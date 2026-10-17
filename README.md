@@ -162,12 +162,19 @@ em [`ASSET_CREDITS.md`](ASSET_CREDITS.md).
 | Personagens (sem animações, ~300 KB cada) e `anims.glb` com as animações compartilhadas | `assets/models/characters/` |
 | Armas | `assets/models/weapons/` |
 | Construções (azul e vermelho), ruínas, árvores, rochas, montanhas e objetos | `assets/models/world/` |
-| Alabarda, martelo, barricada e armadilha (feitos por código) | `src/render3d/props.js` |
+| Castelo principal e portão do pátio (módulos feitos por código, cores por equipe) | `src/render3d/CastleBuilder.js` |
+| Alabarda, bacamarte, barricada, armadilha, princesa, coxinha e seringa (feitos por código) | `src/render3d/props.js` |
 | Aparência de cada classe (modelo, peças visíveis, arma, animações) | `src/render3d/looks.js` |
 | Ícones das habilidades | `assets/ui/icons/*.svg` (`node tools/art/icons.mjs`) |
 
 A câmera fica inclinada a 52°, acompanha o jogador e gira em passos de 45°. Construções que ficam entre a
-câmera e o jogador ficam translúcidas. Para baixar e converter os modelos de novo (precisa de
+câmera e o jogador ficam translúcidas.
+
+O castelo segue o handoff do castelo: corpo de pedra em três níveis (base com degraus e portão em arco,
+corpo central com ameias, torre central e quatro torres redondas de alturas diferentes), telhados cônicos,
+bandeiras que tremulam, estandartes, tochas e janelas escuras. Pedra e madeira são iguais nas duas bases;
+telhados, bandeiras e estandartes usam a cor da equipe. Com menos da metade da vida, uma torre da frente
+desmorona. O pátio murado tem um portão principal com duas torres, arco baixo e caminho de pedra até a arena. Para baixar e converter os modelos de novo (precisa de
 `npm install @gltf-transform/core @gltf-transform/functions` num diretório à parte, ou no projeto):
 
 ```bash
