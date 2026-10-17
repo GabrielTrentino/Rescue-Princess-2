@@ -3,3 +3,4 @@ node_modules/
 *.log
 # Arquivos-fonte pesados de arte ficam fora do Git até definirmos Git LFS
 assets/source/**/*.blend1
+__pycache__/
