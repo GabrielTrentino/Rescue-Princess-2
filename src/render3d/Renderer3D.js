@@ -7,10 +7,11 @@ import { CharacterView } from './CharacterView.js';
 import { buildStaticWorld } from './WorldBuilder.js';
 import { makeHalberd, makeBlunderbuss, makeBarricade, makeTrap, makeWallGate, makeRubble, mat } from './props.js';
 import { PrincessLayer } from './PrincessView.js';
+import { buildCastle, collectAnimated, animateCastleParts } from './CastleBuilder.js';
 import { FX_COLORS, TEAM_COLORS } from '../render/palette.js';
 
 const BUILDING_MODEL = {
-  castle: 'castle', barracks: 'barracks', lumbermill: 'lumbermill', magetower: 'tower_B', archeryrange: 'archeryrange',
+  barracks: 'barracks', lumbermill: 'lumbermill', magetower: 'tower_B', archeryrange: 'archeryrange',
   tavern: 'tavern', blacksmith: 'blacksmith', mine: 'mine', market: 'market', tower: 'tower_A',
 };
 const WALL_STONE = mat(0xb8ad98);
@@ -105,7 +106,8 @@ export class Renderer3D {
   }
 
   buildingKey(b) {
-    return `${b.kind}|${b.team}|${b.destroyed ? 1 : 0}|${b.level}`;
+    const damaged = b.kind === 'castle' && !b.destroyed && b.hpFraction < 0.5 ? 1 : 0;
+    return `${b.kind}|${b.team}|${b.destroyed ? 1 : 0}|${b.level}|${damaged}`;
   }
 
   makeBuilding(b) {
@@ -125,6 +127,14 @@ export class Renderer3D {
           g.add(f);
         }
       }
+      toVec3(b.pos.x, b.pos.y, 0, g.position);
+      return this.finishBuilding(g);
+    }
+    if (b.kind === 'castle' && !b.destroyed) {
+      // Castelo principal feito por módulos (handoff do castelo); a frente olha para o centro do mapa.
+      const castle = buildCastle(team, b.rect.w * S, b.rect.h * S, b.hpFraction < 0.5 ? 'damaged' : 'intact');
+      castle.rotation.y = b.team === 'red' ? Math.PI : 0;
+      g.add(castle);
       toVec3(b.pos.x, b.pos.y, 0, g.position);
       return this.finishBuilding(g);
     }
@@ -192,9 +202,11 @@ export class Renderer3D {
       if (!entry || entry.key !== key) {
         if (entry) this.dynamic.remove(entry.group);
         entry = { key, group: this.makeBuilding(b) };
+        entry.animated = collectAnimated(entry.group);
         this.buildings.set(b.id, entry);
         this.dynamic.add(entry.group);
       }
+      if (entry.animated.length) animateCastleParts(entry.animated, this.time);
       // Tremida ao receber dano.
       const shake = b.hurtTimer > 0 ? Math.sin(this.time * 60) * 0.04 : 0;
       entry.group.position.x = b.pos.x * S + shake;
@@ -612,6 +624,7 @@ export class Renderer3D {
     }
     const world = match.world;
     this.ensureStatic(world.map);
+    animateCastleParts(this.staticWorld.userData.animated ?? [], this.time);
     this.syncBuildings(world, focus, dt);
     this.syncDefenses(world);
     this.syncDrops(world);
